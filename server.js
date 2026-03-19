@@ -2,7 +2,7 @@
 import "dotenv/config"; // carga .env automáticamente
 import express from "express";
 import cors from "cors";
-import servicesRoutes from "./routes/services.routes.js";
+import productosRoutes from "./routes/Producto.js";
 import { dbConnection } from "./database/db.js";
 
 const app = express();
@@ -15,7 +15,7 @@ app.use(express.json());
 dbConnection();
 
 // Rutas
-app.use("/api/services", servicesRoutes);
+app.use("/api/productos", productosRoutes);
 
 // Ruta de prueba (opcional)
 app.get("/", (req, res) => {
@@ -24,7 +24,7 @@ app.get("/", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
-  console.log(`→ Prueba: http://localhost:${PORT}/api/services`);
+  console.log(`→ Prueba: http://localhost:${PORT}/api/productos`);
 });
 
 export default app;
