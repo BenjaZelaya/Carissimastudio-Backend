@@ -1,17 +1,19 @@
-// models/Service.js
+// models/Producto.js
 import mongoose from "mongoose";
 
-const serviceSchema = new mongoose.Schema(
+const ProductoSchema = new mongoose.Schema(
   {
-    nombre: {
+    nombreProducto: {
       type: String,
-      required: [true, "El nombre del servicio es obligatorio"],
+      required: [true, "El nombre del producto es obligatorio"],
       trim: true,
       minlength: [3, "El nombre debe tener al menos 3 caracteres"],
+      maxlength: [50, "El nombre no puede superar los 50 caracteres"],
     },
     descripcion: {
       type: String,
       trim: true,
+      minlength: [10, "La descripción debe tener al menos 10 caracteres"],
       maxlength: [500, "La descripción no puede superar los 500 caracteres"],
     },
     precio: {
@@ -40,4 +42,4 @@ const serviceSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.model("Service", serviceSchema);
+export default mongoose.model("Producto", ProductoSchema);
