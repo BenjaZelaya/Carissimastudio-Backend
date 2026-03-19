@@ -1,42 +1,27 @@
-const { response } = require("express");
-
-const esAdminRole = (req, res = response, next) => {
+// middlewares/validarRoles.js
+export const esAdminRole = (req, res, next) => {
   if (!req.usuario) {
-    return res.status(500).json({
-      msg: "Necesita un token valido",
-    });
+    return res.status(500).json({ msg: "Necesita un token válido" });
   }
 
-  const { rol } = req.usuario;
-
-  if (rol !== "ADMIN_ROLE") {
-    return res.status(401).json({
-      msg: "No tiene permiso para realizar esta acción",
-    });
+  if (req.usuario.rol !== "ADMIN_ROLE") {
+    return res.status(401).json({ msg: "No tiene permiso para realizar esta acción" });
   }
 
   next();
 };
 
-const tieneRole = (...roles) => {
-  return (req, res = response, next) => {
+export const tieneRole = (...roles) => {
+  return (req, res, next) => {
     if (!req.usuario) {
-      return res.status(500).json({
-        msg: "Necesita un token valido",
-      });
+      return res.status(500).json({ msg: "Necesita un token válido" });
     }
 
     if (!roles.includes(req.usuario.rol)) {
-      return res.status(401).json({
-        msg: "No tiene permiso para realizar esta acción",
-      });
+      return res.status(401).json({ msg: "No tiene permiso para realizar esta acción" });
     }
 
     next();
   };
 };
 
-module.exports = {
-  esAdminRole,
-  tieneRole,
-};
