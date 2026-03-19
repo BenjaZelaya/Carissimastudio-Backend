@@ -18,23 +18,20 @@ const ProductoSchema = new mongoose.Schema(
     },
     precio: {
       type: Number,
-      required: [true, "El precio es obligatorio"],
+      required: [true, "El precio del producto es obligatorio"],
       min: [0, "El precio no puede ser negativo"],
     },
-    sena: {
-      type: Number,
-      default: 0,
-      min: [0, "La seña no puede ser negativa"],
-    },
-    duracion: {
+    img: {
       type: String,
-      required: [true, "La duración es obligatoria"],
-      trim: true,
+      required: [true, "La imagen es obligatoria"],
+      match: [
+        /^https:\/\/res\.cloudinary\.com\/.+$/,
+        "La URL de imagen no es válida",
+      ],
     },
-    imagen: {
-      type: String,
-      default: "https://via.placeholder.com/300?text=Servicio",
-      trim: true,
+    estado: {
+      type: Boolean,
+      default: true,
     },
   },
   {
