@@ -6,6 +6,7 @@ import { validarJWT } from "../middlewares/validar-jwt.js";
 import { esAdminRole } from "../middlewares/validarRoles.js";
 import {
   getProductos,
+  getProductosAdmin,
   getProductoById,
   postProducto,
   putProducto,
@@ -24,6 +25,19 @@ router.get(
     validarCampos,
   ],
   getProductos
+);
+
+// GET /api/productos/admin?page=1&limit=20  → lista todos los productos incluso inactivos (admin)
+router.get(
+  "/admin",
+  [
+    validarJWT,
+    esAdminRole,
+    query("page").optional().isInt({ min: 1 }).withMessage("page debe ser un entero mayor a 0"),
+    query("limit").optional().isInt({ min: 1, max: 100 }).withMessage("limit debe ser un entero entre 1 y 100"),
+    validarCampos,
+  ],
+  getProductosAdmin
 );
 
 // GET /api/productos/:id  → obtiene un producto por ID (público)

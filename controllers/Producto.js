@@ -14,6 +14,16 @@ const getProductos = async (req, res) => {
   }
 };
 
+const getProductosAdmin = async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const resultado = await ProductoService.obtenerProductosAdmin({ page, limit });
+    res.json(resultado);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 const getProductoById = async (req, res) => {
   try {
     const producto = await ProductoService.obtenerProductoPorId(req.params.id);
@@ -25,8 +35,7 @@ const getProductoById = async (req, res) => {
 
 const postProducto = async (req, res) => {
   try {
-    const { nombreProducto, descripcion, precio, img } = req.body;
-    const producto = await ProductoService.crearProducto({ nombreProducto, descripcion, precio, img });
+    const producto = await ProductoService.crearProducto(req.body);
     res.status(201).json(producto);
   } catch (error) {
     handleError(res, error);
@@ -44,8 +53,8 @@ const putProducto = async (req, res) => {
 
 const deleteProducto = async (req, res) => {
   try {
-    const producto = await ProductoService.eliminarProducto(req.params.id);
-    res.json({ msg: "Producto eliminado", producto });
+    await ProductoService.eliminarProducto(req.params.id);
+    res.json({ msg: "Producto desactivado correctamente" });
   } catch (error) {
     handleError(res, error);
   }
@@ -62,4 +71,12 @@ const patchRestaurarProducto = async (req, res) => {
 
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
-export { getProductos, getProductoById, postProducto, putProducto, deleteProducto, patchRestaurarProducto };
+export {
+  getProductos,
+  getProductosAdmin,
+  getProductoById,
+  postProducto,
+  putProducto,
+  deleteProducto,
+  patchRestaurarProducto,
+};

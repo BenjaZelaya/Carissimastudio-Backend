@@ -23,11 +23,22 @@ const obtenerProductos = async ({ page = 1, limit = 20 } = {}) => {
   return { total, page: Number(page), limit: Number(limit), productos };
 };
 
+const obtenerProductosAdmin = async ({ page = 1, limit = 20 } = {}) => {
+  const skip = (page - 1) * limit;
+  const [productos, total] = await Promise.all([
+    Producto.find().sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Producto.countDocuments(),
+  ]);
+  return { total, page: Number(page), limit: Number(limit), productos };
+};
+
 const obtenerProductoPorId = async (id) => {
   return await buscarProductoActivo(id);
 };
 
-const crearProducto = async ({ nombreProducto, descripcion, precio, img }) => {
+const crearProducto = async (datos) => {
+  const { nombreProducto, descripcion, precio, img } = datos;
+
   const existente = await Producto.findOne({
     nombreProducto: { $regex: new RegExp(`^${nombreProducto}$`, "i") },
     estado: true,
@@ -85,4 +96,12 @@ const restaurarProducto = async (id) => {
 
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
-export { obtenerProductos, obtenerProductoPorId, crearProducto, actualizarProducto, eliminarProducto, restaurarProducto };
+export {
+  obtenerProductos,
+  obtenerProductosAdmin,
+  obtenerProductoPorId,
+  crearProducto,
+  actualizarProducto,
+  eliminarProducto,
+  restaurarProducto,
+};
