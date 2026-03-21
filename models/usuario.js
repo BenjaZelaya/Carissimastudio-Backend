@@ -28,6 +28,7 @@ const UsuarioSchema = new mongoose.Schema(
             match: [/^\S+@\S+\.\S+$/, "Debe ser un correo válido"],
             maxlength: [35, "El correo no puede tener más de 35 caracteres"],
         },
+
         password: {
             type: String,
             required: [true, "La contraseña es obligatoria"],
@@ -50,15 +51,24 @@ const UsuarioSchema = new mongoose.Schema(
             default: "USER_ROLE",
         },
 
+        google: {
+            type: Boolean,
+            default: false,
+        },
+
         estado: {
             type: Boolean,
             default: true,
         },
-
     },
     {
         timestamps: true,
     }
 );
+
+UsuarioSchema.methods.toJSON = function () {
+    const { password, __v, ...usuario } = this.toObject();
+    return usuario;
+};
 
 export default mongoose.model("Usuario", UsuarioSchema);
