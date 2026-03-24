@@ -12,6 +12,8 @@ import {
   putCategoria,
   deleteCategoria,
   patchRestaurarCategoria,
+  agregarProducto,
+  quitarProducto,
 } from "../controllers/Categoria.js";
 
 const router = Router();
@@ -105,4 +107,33 @@ router.patch(
   patchRestaurarCategoria
 );
 
+// PATCH /api/categorias/:id/agregar-producto  → agrega un producto a la categoría (admin)
+router.patch(
+  "/:id/agregar-producto",
+  [
+    validarJWT,
+    esAdminRole,
+    param("id").isMongoId().withMessage("ID de categoría no válido"),
+    check("productoId", "El ID del producto es obligatorio").notEmpty(),
+    check("productoId", "ID de producto no válido").isMongoId(),
+    validarCampos,
+  ],
+  agregarProducto
+);
+
+// PATCH /api/categorias/:id/quitar-producto  → quita un producto de la categoría (admin)
+router.patch(
+  "/:id/quitar-producto",
+  [
+    validarJWT,
+    esAdminRole,
+    param("id").isMongoId().withMessage("ID de categoría no válido"),
+    check("productoId", "El ID del producto es obligatorio").notEmpty(),
+    check("productoId", "ID de producto no válido").isMongoId(),
+    validarCampos,
+  ],
+  quitarProducto
+);
+
 export default router;
+

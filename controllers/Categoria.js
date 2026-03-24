@@ -3,6 +3,24 @@ import * as CategoriaService from "../services/Categoria.js";
 import { handleError } from "../helpers/handleError.js";
 
 // ─── Handlers HTTP ───────────────────────────────────────────────────────────
+const agregarProducto = async (req, res) => {
+  try {
+    const categoria = await CategoriaService.agregarProducto(req.params.id, req.body.productoId);
+    res.json(categoria);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const quitarProducto = async (req, res) => {
+  try {
+    const categoria = await CategoriaService.quitarProducto(req.params.id, req.body.productoId);
+    res.json(categoria);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 
 const getCategorias = async (req, res) => {
   try {
@@ -79,4 +97,6 @@ export {
   putCategoria,
   deleteCategoria,
   patchRestaurarCategoria,
+  agregarProducto,
+  quitarProducto,
 };

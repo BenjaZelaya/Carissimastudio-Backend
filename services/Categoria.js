@@ -13,6 +13,29 @@ const buscarCategoriaActiva = async (id) => {
 };
 
 // ─── Lógica de negocio ───────────────────────────────────────────────────────
+const agregarProducto = async (categoriaId, productoId) => {
+  const categoria = await buscarCategoriaActiva(categoriaId);
+
+  if (categoria.productos.includes(productoId)) {
+    throw new AppError("El producto ya está en esta categoría", 409);
+  }
+
+  return await Categoria.findByIdAndUpdate(
+    categoriaId,
+    { $push: { productos: productoId } },
+    { new: true }
+  ).populate("productos", "nombreProducto precio img");
+};
+
+const quitarProducto = async (categoriaId, productoId) => {
+  await buscarCategoriaActiva(categoriaId);
+
+  return await Categoria.findByIdAndUpdate(
+    categoriaId,
+    { $pull: { productos: productoId } },
+    { new: true }
+  ).populate("productos", "nombreProducto precio img");
+};
 
 const obtenerCategorias = async ({ page = 1, limit = 20 } = {}) => {
   const skip = (page - 1) * limit;
@@ -104,4 +127,6 @@ export {
   actualizarCategoria,
   eliminarCategoria,
   restaurarCategoria,
+  agregarProducto,
+  quitarProducto,
 };
