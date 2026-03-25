@@ -1,7 +1,7 @@
-// config/db.js
+// database/db.js
 import mongoose from "mongoose";
 
-export const connectDB = async () => {
+export const dbConnection = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
     console.log("MongoDB conectado correctamente");
@@ -10,7 +10,3 @@ export const connectDB = async () => {
     process.exit(1);
   }
 };
-
-module.exports = {
-  dbConnection,
-}

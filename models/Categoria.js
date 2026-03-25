@@ -1,11 +1,11 @@
-// models/Producto.js
+// models/Categoria.js
 import mongoose from "mongoose";
 
-const ProductoSchema = new mongoose.Schema(
+const CategoriaSchema = new mongoose.Schema(
   {
-    nombreProducto: {
+    nombreCategoria: {
       type: String,
-      required: [true, "El nombre del producto es obligatorio"],
+      required: [true, "El nombre de la categoría es obligatorio"],
       trim: true,
       minlength: [3, "El nombre debe tener al menos 3 caracteres"],
       maxlength: [50, "El nombre no puede superar los 50 caracteres"],
@@ -16,19 +16,12 @@ const ProductoSchema = new mongoose.Schema(
       minlength: [10, "La descripción debe tener al menos 10 caracteres"],
       maxlength: [500, "La descripción no puede superar los 500 caracteres"],
     },
-    precio: {
-      type: Number,
-      required: [true, "El precio del producto es obligatorio"],
-      min: [0, "El precio no puede ser negativo"],
-    },
-    img: {
-      type: String,
-      required: [true, "La imagen es obligatoria"],
-      match: [
-        /^https:\/\/res\.cloudinary\.com\/.+$/,
-        "La URL de imagen no es válida",
-      ],
-    },
+    productos: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Producto",
+      },
+    ],
     orden: {
       type: Number,
       default: 0,
@@ -43,4 +36,4 @@ const ProductoSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.model("Producto", ProductoSchema);
+export default mongoose.model("Categoria", CategoriaSchema);

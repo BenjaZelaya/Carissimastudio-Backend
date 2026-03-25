@@ -23,11 +23,22 @@ const obtenerProductos = async ({ page = 1, limit = 20 } = {}) => {
   return { total, page: Number(page), limit: Number(limit), productos };
 };
 
+const obtenerProductosAdmin = async ({ page = 1, limit = 20 } = {}) => {
+  const skip = (page - 1) * limit;
+  const [productos, total] = await Promise.all([
+    Producto.find().sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Producto.countDocuments(),
+  ]);
+  return { total, page: Number(page), limit: Number(limit), productos };
+};
+
 const obtenerProductoPorId = async (id) => {
   return await buscarProductoActivo(id);
 };
 
-const crearProducto = async ({ nombreProducto, descripcion, precio, img }) => {
+const crearProducto = async (datos) => {
+  const { nombreProducto, descripcion, precio, img } = datos;
+
   const existente = await Producto.findOne({
     nombreProducto: { $regex: new RegExp(`^${nombreProducto}$`, "i") },
     estado: true,
@@ -67,6 +78,14 @@ const actualizarProducto = async (id, datos) => {
   });
 };
 
+const actualizarOrden = async (items) => {
+  // items = [{ id, orden }]
+  const operaciones = items.map(({ id, orden }) =>
+    Producto.findByIdAndUpdate(id, { orden }, { new: true })
+  );
+  return await Promise.all(operaciones);
+};
+
 const eliminarProducto = async (id) => {
   await buscarProductoActivo(id);
   return await Producto.findByIdAndUpdate(id, { estado: false }, { new: true });
@@ -83,6 +102,22 @@ const restaurarProducto = async (id) => {
   return await Producto.findByIdAndUpdate(id, { estado: true }, { new: true });
 };
 
+const eliminarDefinitivo = async (id) => {
+  const producto = await Producto.findById(id);
+  if (!producto) throw new AppError("Producto no encontrado", 404);
+  await Producto.findByIdAndDelete(id);
+};
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
-export { obtenerProductos, obtenerProductoPorId, crearProducto, actualizarProducto, eliminarProducto, restaurarProducto };
+export {
+  obtenerProductos,
+  obtenerProductosAdmin,
+  obtenerProductoPorId,
+  crearProducto,
+  actualizarProducto,
+  eliminarProducto,
+  restaurarProducto,
+  actualizarOrden,
+  eliminarDefinitivo,
+};

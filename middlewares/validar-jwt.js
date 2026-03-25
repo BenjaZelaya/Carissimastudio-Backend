@@ -1,8 +1,6 @@
 // middlewares/validar-jwt.js
 import jwt from "jsonwebtoken";
-
-// TODO (punto 7): importar el modelo de Usuario cuando esté creado y hacer
-//   lookup en DB para verificar que el usuario todavía existe y está activo.
+import Usuario from "../models/Usuario.js";
 
 const validarJWT = async (req, res, next) => {
   const token = req.header("x-token");
@@ -13,7 +11,14 @@ const validarJWT = async (req, res, next) => {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.usuario = payload;
+
+    // Verifica que el usuario exista y esté activo en la DB
+    const usuario = await Usuario.findById(payload.uid);
+    if (!usuario || !usuario.estado) {
+      return res.status(401).json({ msg: "Token no válido - usuario inexistente o inactivo" });
+    }
+
+    req.usuario = usuario;
     next();
   } catch {
     return res.status(401).json({ msg: "Token no válido" });

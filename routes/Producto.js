@@ -2,15 +2,18 @@
 import { Router } from "express";
 import { check, param, query } from "express-validator";
 import { validarCampos } from "../helpers/validar-campos.js";
+import { upload, subirACloudinary } from "../middlewares/upload.js";
 import { validarJWT } from "../middlewares/validar-jwt.js";
 import { esAdminRole } from "../middlewares/validarRoles.js";
 import {
   getProductos,
+  getProductosAdmin,
   getProductoById,
   postProducto,
   putProducto,
   deleteProducto,
   patchRestaurarProducto,
+  patchOrden,
 } from "../controllers/Producto.js";
 
 const router = Router();
@@ -24,6 +27,19 @@ router.get(
     validarCampos,
   ],
   getProductos
+);
+
+// GET /api/productos/admin?page=1&limit=20  → lista todos los productos incluso inactivos (admin)
+router.get(
+  "/admin",
+  [
+    validarJWT,
+    esAdminRole,
+    query("page").optional().isInt({ min: 1 }).withMessage("page debe ser un entero mayor a 0"),
+    query("limit").optional().isInt({ min: 1, max: 100 }).withMessage("limit debe ser un entero entre 1 y 100"),
+    validarCampos,
+  ],
+  getProductosAdmin
 );
 
 // GET /api/productos/:id  → obtiene un producto por ID (público)
@@ -49,6 +65,24 @@ router.post(
     validarCampos,
   ],
   postProducto
+);
+
+// POST /api/productos/upload  → sube imagen a Cloudinary (admin)
+router.post(
+  "/upload",
+  [validarJWT, esAdminRole, upload.single("img")],
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ msg: "No se subió ninguna imagen" });
+      }
+      const resultado = await subirACloudinary(req.file.buffer);
+      res.json({ url: resultado.secure_url });
+    } catch (error) {
+      console.error("Error Cloudinary:", error);
+      res.status(500).json({ msg: "Error al subir la imagen" });
+    }
+  }
 );
 
 // PUT /api/productos/:id  → actualiza un producto (admin)
@@ -94,6 +128,13 @@ router.patch(
     validarCampos,
   ],
   patchRestaurarProducto
+);
+
+// PATCH /api/productos/orden  → actualiza el orden (admin)
+router.patch(
+  "/orden",
+  [validarJWT, esAdminRole],
+  patchOrden
 );
 
 export default router;
