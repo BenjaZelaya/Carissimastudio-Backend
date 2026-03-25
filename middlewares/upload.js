@@ -9,10 +9,21 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Usamos memoria en vez de multer-storage-cloudinary
+/**
+ * Middleware de multer con almacenamiento en memoria.
+ * El archivo queda disponible en req.file.buffer para luego
+ * ser enviado a Cloudinary via subirACloudinary.
+ */
 export const upload = multer({ storage: multer.memoryStorage() });
 
-// Sube el buffer a Cloudinary manualmente
+/**
+ * Sube un buffer de imagen a Cloudinary y devuelve el resultado.
+ * Las imagenes se almacenan en la carpeta "carissima-studio" y se
+ * redimensionan a un maximo de 800px de ancho.
+ *
+ * @param {Buffer} buffer - Buffer del archivo a subir.
+ * @returns {Promise<import("cloudinary").UploadApiResponse>} Resultado de Cloudinary con url, public_id, etc.
+ */
 export const subirACloudinary = (buffer) => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
@@ -23,7 +34,7 @@ export const subirACloudinary = (buffer) => {
       (error, result) => {
         if (error) reject(error);
         else resolve(result);
-      }
+      },
     );
     Readable.from(buffer).pipe(stream);
   });

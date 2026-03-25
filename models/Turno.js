@@ -22,7 +22,10 @@ const TurnoSchema = new mongoose.Schema(
     horaInicio: {
       type: String,
       required: [true, "La hora es obligatoria"],
-      match: [/^([01]\d|2[0-3]):([0-5]\d)$/, "Formato de hora inválido (HH:MM)"],
+      match: [
+        /^([01]\d|2[0-3]):([0-5]\d)$/,
+        "Formato de hora inválido (HH:MM)",
+      ],
     },
     total: {
       type: Number,
@@ -41,7 +44,14 @@ const TurnoSchema = new mongoose.Schema(
     },
     estado: {
       type: String,
-      enum: ["pendiente", "señado", "confirmado", "cancelado", "completado"],
+      enum: [
+        "pendiente",
+        "señado",
+        "confirmado",
+        "pago_rechazado",
+        "cancelado",
+        "completado",
+      ],
       default: "pendiente",
     },
     comprobante: {
@@ -53,6 +63,14 @@ const TurnoSchema = new mongoose.Schema(
       default: 0,
       max: [2, "No se pueden hacer más de 2 cambios de horario"],
     },
+    motivoCancelacion: {
+      type: String,
+      default: null,
+    },
+    motivoRechazo: {
+      type: String,
+      default: null,
+    },
     ultimoCambioHorario: {
       type: Date,
       default: null,
@@ -60,7 +78,14 @@ const TurnoSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
+
+// Indice compuesto para la busqueda de conflictos de slot en crearTurno
+// y para las consultas de turnos del dia ordenadas por hora.
+TurnoSchema.index({ fecha: 1, horaInicio: 1 });
+
+// Indice para acelerar la consulta de turnos por usuario (mis-turnos).
+TurnoSchema.index({ usuario: 1 });
 
 export default mongoose.model("Turno", TurnoSchema);

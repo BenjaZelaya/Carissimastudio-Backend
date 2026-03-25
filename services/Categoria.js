@@ -1,6 +1,7 @@
 // services/Categoria.js
 import Categoria from "../models/Categoria.js";
 import { AppError } from "../helpers/AppError.js";
+import { busquedaExacta } from "../helpers/regex.js";
 
 // ─── Helpers internos ────────────────────────────────────────────────────────
 
@@ -63,7 +64,7 @@ const crearCategoria = async (datos) => {
   const { nombreCategoria, descripcion } = datos;
 
   const existente = await Categoria.findOne({
-    nombreCategoria: { $regex: new RegExp(`^${nombreCategoria}$`, "i") },
+    nombreCategoria: busquedaExacta(nombreCategoria),
     estado: true,
   });
   if (existente) {
@@ -84,7 +85,7 @@ const actualizarCategoria = async (id, datos) => {
   if (camposPermitidos.nombreCategoria) {
     const duplicado = await Categoria.findOne({
       _id: { $ne: id },
-      nombreCategoria: { $regex: new RegExp(`^${camposPermitidos.nombreCategoria}$`, "i") },
+      nombreCategoria: busquedaExacta(camposPermitidos.nombreCategoria),
       estado: true,
     });
     if (duplicado) {
@@ -102,10 +103,10 @@ const actualizarCategoria = async (id, datos) => {
 };
 
 const actualizarOrden = async (items) => {
-  const operaciones = items.map(({ id, orden }) =>
-    Categoria.findByIdAndUpdate(id, { orden }, { new: true })
-  );
-  return await Promise.all(operaciones);
+  const operaciones = items.map(({ id, orden }) => ({
+    updateOne: { filter: { _id: id }, update: { $set: { orden } } },
+  }));
+  await Categoria.bulkWrite(operaciones);
 };
 
 const eliminarCategoria = async (id) => {

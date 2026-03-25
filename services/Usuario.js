@@ -16,12 +16,14 @@ const buscarUsuarioActivo = async (id) => {
 // ─── Lógica de negocio ───────────────────────────────────────────────────────
 
 const obtenerUsuarios = async ({ page = 1, limit = 20 } = {}) => {
-  const skip = (page - 1) * limit;
+  const limiteSanitizado = Math.min(Math.max(Number(limit), 1), 100);
+  const paginaSanitizada = Math.max(Number(page), 1);
+  const skip = (paginaSanitizada - 1) * limiteSanitizado;
   const [usuarios, total] = await Promise.all([
-    Usuario.find().sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Usuario.find().sort({ createdAt: -1 }).skip(skip).limit(limiteSanitizado),
     Usuario.countDocuments(),
   ]);
-  return { total, page: Number(page), limit: Number(limit), usuarios };
+  return { total, page: paginaSanitizada, limit: limiteSanitizado, usuarios };
 };
 
 const obtenerUsuarioPorId = async (id) => {
