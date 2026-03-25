@@ -29,6 +29,10 @@ const ProductoSchema = new mongoose.Schema(
         "La URL de imagen no es válida",
       ],
     },
+    orden: {
+      type: Number,
+      default: 0,
+    },
     estado: {
       type: Boolean,
       default: true,

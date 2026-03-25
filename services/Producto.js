@@ -78,6 +78,14 @@ const actualizarProducto = async (id, datos) => {
   });
 };
 
+const actualizarOrden = async (items) => {
+  // items = [{ id, orden }]
+  const operaciones = items.map(({ id, orden }) =>
+    Producto.findByIdAndUpdate(id, { orden }, { new: true })
+  );
+  return await Promise.all(operaciones);
+};
+
 const eliminarProducto = async (id) => {
   await buscarProductoActivo(id);
   return await Producto.findByIdAndUpdate(id, { estado: false }, { new: true });
@@ -94,6 +102,12 @@ const restaurarProducto = async (id) => {
   return await Producto.findByIdAndUpdate(id, { estado: true }, { new: true });
 };
 
+const eliminarDefinitivo = async (id) => {
+  const producto = await Producto.findById(id);
+  if (!producto) throw new AppError("Producto no encontrado", 404);
+  await Producto.findByIdAndDelete(id);
+};
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 export {
@@ -104,4 +118,6 @@ export {
   actualizarProducto,
   eliminarProducto,
   restaurarProducto,
+  actualizarOrden,
+  eliminarDefinitivo,
 };

@@ -60,10 +60,28 @@ const deleteProducto = async (req, res) => {
   }
 };
 
+const patchOrden = async (req, res) => {
+  try {
+    await ProductoService.actualizarOrden(req.body.items);
+    res.json({ msg: "Orden actualizado" });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 const patchRestaurarProducto = async (req, res) => {
   try {
     const producto = await ProductoService.restaurarProducto(req.params.id);
     res.json({ msg: "Producto restaurado", producto });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const deleteProductoDefinitivo = async (req, res) => {
+  try {
+    await ProductoService.eliminarDefinitivo(req.params.id);
+    res.json({ msg: "Producto eliminado definitivamente" });
   } catch (error) {
     handleError(res, error);
   }
@@ -79,4 +97,6 @@ export {
   putProducto,
   deleteProducto,
   patchRestaurarProducto,
+  patchOrden,
+  deleteProductoDefinitivo,
 };

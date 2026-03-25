@@ -13,6 +13,7 @@ import {
   putProducto,
   deleteProducto,
   patchRestaurarProducto,
+  patchOrden,
 } from "../controllers/Producto.js";
 
 const router = Router();
@@ -127,6 +128,13 @@ router.patch(
     validarCampos,
   ],
   patchRestaurarProducto
+);
+
+// PATCH /api/productos/orden  → actualiza el orden (admin)
+router.patch(
+  "/orden",
+  [validarJWT, esAdminRole],
+  patchOrden
 );
 
 export default router;

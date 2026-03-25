@@ -22,6 +22,10 @@ const CategoriaSchema = new mongoose.Schema(
         ref: "Producto",
       },
     ],
+    orden: {
+      type: Number,
+      default: 0,
+    },
     estado: {
       type: Boolean,
       default: true,

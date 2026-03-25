@@ -14,6 +14,7 @@ import {
   patchRestaurarCategoria,
   agregarProducto,
   quitarProducto,
+  patchOrden,
 } from "../controllers/Categoria.js";
 
 const router = Router();
@@ -133,6 +134,13 @@ router.patch(
     validarCampos,
   ],
   quitarProducto
+);
+
+// PATCH /api/categorias/orden  → actualiza el orden (admin)
+router.patch(
+  "/orden",
+  [validarJWT, esAdminRole],
+  patchOrden
 );
 
 export default router;

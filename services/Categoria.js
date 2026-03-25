@@ -101,6 +101,13 @@ const actualizarCategoria = async (id, datos) => {
   });
 };
 
+const actualizarOrden = async (items) => {
+  const operaciones = items.map(({ id, orden }) =>
+    Categoria.findByIdAndUpdate(id, { orden }, { new: true })
+  );
+  return await Promise.all(operaciones);
+};
+
 const eliminarCategoria = async (id) => {
   await buscarCategoriaActiva(id);
   return await Categoria.findByIdAndUpdate(id, { estado: false }, { new: true });
@@ -117,6 +124,12 @@ const restaurarCategoria = async (id) => {
   return await Categoria.findByIdAndUpdate(id, { estado: true }, { new: true });
 };
 
+const eliminarDefinitivo = async (id) => {
+  const categoria = await Categoria.findById(id);
+  if (!categoria) throw new AppError("Categoría no encontrada", 404);
+  await Categoria.findByIdAndDelete(id);
+};
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 export {
@@ -129,4 +142,6 @@ export {
   restaurarCategoria,
   agregarProducto,
   quitarProducto,
+  actualizarOrden,
+  eliminarDefinitivo,
 };

@@ -78,10 +78,28 @@ const deleteCategoria = async (req, res) => {
   }
 };
 
+const patchOrden = async (req, res) => {
+  try {
+    await CategoriaService.actualizarOrden(req.body.items);
+    res.json({ msg: "Orden actualizado" });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 const patchRestaurarCategoria = async (req, res) => {
   try {
     const categoria = await CategoriaService.restaurarCategoria(req.params.id);
     res.json({ msg: "Categoría restaurada", categoria });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const deleteCategoriaDefinitiva = async (req, res) => {
+  try {
+    await CategoriaService.eliminarDefinitivo(req.params.id);
+    res.json({ msg: "Categoría eliminada definitivamente" });
   } catch (error) {
     handleError(res, error);
   }
@@ -99,4 +117,6 @@ export {
   patchRestaurarCategoria,
   agregarProducto,
   quitarProducto,
+  patchOrden,
+  deleteCategoriaDefinitiva,
 };
