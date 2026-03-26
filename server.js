@@ -49,6 +49,18 @@ app.use(
 );
 
 /**
+ * Rate limiting global: 60 requests cada 15 minutos por IP.
+ * Cubre todos los endpoints para prevenir abuso general.
+ */
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: { msg: "Demasiadas solicitudes. Intenta nuevamente en 15 minutos." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
  * Rate limiting sobre los endpoints de autenticacion para prevenir
  * ataques de fuerza bruta. Limite: 20 intentos cada 15 minutos por IP.
  */
@@ -60,6 +72,7 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+app.use(globalLimiter);
 app.use(express.json());
 
 // ─── Servidor ────────────────────────────────────────────────────────────────
