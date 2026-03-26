@@ -22,8 +22,9 @@ const getTurnosUsuario = async (req, res) => {
 
 const getTurnosAdmin = async (req, res) => {
   try {
-    const turnos = await TurnoService.obtenerTurnosAdmin();
-    res.json(turnos);
+    const { pagina, limite } = req.query;
+    const resultado = await TurnoService.obtenerTurnosAdmin({ pagina, limite });
+    res.json(resultado);
   } catch (error) {
     handleError(res, error);
   }
@@ -43,7 +44,7 @@ const patchSubirComprobante = async (req, res) => {
     const turno = await TurnoService.subirComprobante(
       req.params.id,
       req.body.comprobante,
-      req.usuario._id
+      req.usuario._id,
     );
     res.json(turno);
   } catch (error) {
@@ -65,7 +66,7 @@ const patchCancelarTurno = async (req, res) => {
     const turno = await TurnoService.cancelarTurno(
       req.params.id,
       req.usuario._id,
-      req.usuario.rol === "ADMIN_ROLE"
+      req.usuario.rol === "ADMIN_ROLE",
     );
     res.json(turno);
   } catch (error) {
@@ -78,8 +79,29 @@ const patchCambiarHorario = async (req, res) => {
     const turno = await TurnoService.cambiarHorario(
       req.params.id,
       req.body,
-      req.usuario._id
+      req.usuario._id,
     );
+    res.json(turno);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const patchRechazarPago = async (req, res) => {
+  try {
+    const turno = await TurnoService.rechazarPago(
+      req.params.id,
+      req.body.motivo,
+    );
+    res.json(turno);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
+const patchCompletarTurno = async (req, res) => {
+  try {
+    const turno = await TurnoService.completarTurno(req.params.id);
     res.json(turno);
   } catch (error) {
     handleError(res, error);
@@ -105,5 +127,7 @@ export {
   patchConfirmarTurno,
   patchCancelarTurno,
   patchCambiarHorario,
+  patchRechazarPago,
+  patchCompletarTurno,
   deleteTurno,
 };

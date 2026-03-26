@@ -78,29 +78,34 @@ const generarTurnosDelDia = (config, bloqueosDia) => {
 
 const obtenerDisponibilidadSemana = async (fechaInicio) => {
   const config = await obtenerConfig();
+
+  const inicio = fechaSinHora(fechaInicio);
+  const fin = new Date(inicio.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+  // Una sola query para todos los bloqueos del rango de 14 dias
+  const todosLosBloqueos = await Bloqueo.find({
+    fecha: { $gte: inicio, $lt: fin },
+  });
+
   const resultado = [];
 
-  // Genera 14 días desde la fecha de inicio
   for (let i = 0; i < 14; i++) {
-    const fecha = new Date(fechaInicio);
+    const fecha = new Date(inicio);
     fecha.setDate(fecha.getDate() + i);
-    fecha.setHours(0, 0, 0, 0);
+
+    const inicioDia = fecha;
+    const finDia = new Date(fecha.getTime() + 24 * 60 * 60 * 1000);
+
+    // Filtra en memoria los bloqueos correspondientes a este dia
+    const bloqueosDia = todosLosBloqueos.filter((b) => {
+      const fb = new Date(b.fecha);
+      return fb >= inicioDia && fb < finDia;
+    });
 
     // getDia: 0=domingo, 1=lunes ... 6=sábado → convertimos a 1=lunes ... 7=domingo
     const diaSemana = fecha.getDay() === 0 ? 7 : fecha.getDay();
-
-    // Verifica si es día laboral
     const esLaboral = config.diasLaborales.includes(diaSemana);
-
-    // Busca bloqueos para este día
-    const bloqueos = await Bloqueo.find({
-      fecha: {
-        $gte: fechaSinHora(fecha),
-        $lt: new Date(fechaSinHora(fecha).getTime() + 24 * 60 * 60 * 1000),
-      },
-    });
-
-    const bloqueoDia = bloqueos.some((b) => b.tipo === "dia");
+    const bloqueoDia = bloqueosDia.some((b) => b.tipo === "dia");
 
     if (!esLaboral || bloqueoDia) {
       resultado.push({
@@ -111,7 +116,7 @@ const obtenerDisponibilidadSemana = async (fechaInicio) => {
       continue;
     }
 
-    const turnos = generarTurnosDelDia(config, bloqueos);
+    const turnos = generarTurnosDelDia(config, bloqueosDia);
 
     resultado.push({
       fecha: fecha.toISOString().split("T")[0],
@@ -152,6 +157,7 @@ const eliminarBloqueo = async (id) => {
 export {
   obtenerConfig,
   actualizarConfig,
+  generarTurnosDelDia,
   obtenerDisponibilidadSemana,
   crearBloqueo,
   obtenerBloqueos,

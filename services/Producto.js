@@ -1,6 +1,7 @@
 // services/Producto.js
 import Producto from "../models/Producto.js";
 import { AppError } from "../helpers/AppError.js";
+import { busquedaExacta } from "../helpers/regex.js";
 
 // ─── Helpers internos ────────────────────────────────────────────────────────
 
@@ -40,7 +41,7 @@ const crearProducto = async (datos) => {
   const { nombreProducto, descripcion, precio, img } = datos;
 
   const existente = await Producto.findOne({
-    nombreProducto: { $regex: new RegExp(`^${nombreProducto}$`, "i") },
+    nombreProducto: busquedaExacta(nombreProducto),
     estado: true,
   });
   if (existente) {
@@ -61,7 +62,7 @@ const actualizarProducto = async (id, datos) => {
   if (camposPermitidos.nombreProducto) {
     const duplicado = await Producto.findOne({
       _id: { $ne: id },
-      nombreProducto: { $regex: new RegExp(`^${camposPermitidos.nombreProducto}$`, "i") },
+      nombreProducto: busquedaExacta(camposPermitidos.nombreProducto),
       estado: true,
     });
     if (duplicado) {
@@ -79,11 +80,10 @@ const actualizarProducto = async (id, datos) => {
 };
 
 const actualizarOrden = async (items) => {
-  // items = [{ id, orden }]
-  const operaciones = items.map(({ id, orden }) =>
-    Producto.findByIdAndUpdate(id, { orden }, { new: true })
-  );
-  return await Promise.all(operaciones);
+  const operaciones = items.map(({ id, orden }) => ({
+    updateOne: { filter: { _id: id }, update: { $set: { orden } } },
+  }));
+  await Producto.bulkWrite(operaciones);
 };
 
 const eliminarProducto = async (id) => {
