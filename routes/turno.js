@@ -1,14 +1,19 @@
 // routes/turno.js
 import { Router } from "express";
 import { check, param } from "express-validator";
+
 import { validarCampos } from "../helpers/validar-campos.js";
 import { validarJWT } from "../middlewares/validar-jwt.js";
 import { esAdminRole } from "../middlewares/validarRoles.js";
+import { upload, subirACloudinary } from "../middlewares/upload.js";
+
+// Import único de controladores
 import {
   postTurno,
   getTurnosUsuario,
   getTurnosAdmin,
   getTurnoById,
+  getMisTurnos,           // ← Solo una vez
   patchSubirComprobante,
   patchConfirmarTurno,
   patchCancelarTurno,
@@ -20,6 +25,8 @@ import {
 
 const router = Router();
 
+// ==================== RUTAS ====================
+
 // POST /api/turnos  → crea un turno (usuario logueado)
 router.post(
   "/",
@@ -30,18 +37,16 @@ router.post(
     check("horaInicio", "La hora es obligatoria")
       .notEmpty()
       .matches(/^([01]\d|2[0-3]):([0-5]\d)$/),
-    check(
-      "metodoPago",
-      "El método de pago debe ser transferencia o mercadopago",
-    ).isIn(["transferencia", "mercadopago"]),
+    check("metodoPago", "El método de pago debe ser transferencia o mercadopago")
+      .isIn(["transferencia", "mercadopago"]),
     check("total", "El total es obligatorio").isFloat({ min: 0 }),
     validarCampos,
   ],
-  postTurno,
+  postTurno
 );
 
-// GET /api/turnos/mis-turnos  → turnos del usuario logueado
-router.get("/mis-turnos", [validarJWT], getTurnosUsuario);
+// GET /api/turnos/mis-turnos  → turnos del usuario logueado (LA QUE NECESITAS)
+router.get("/mis-turnos", validarJWT, getMisTurnos);
 
 // GET /api/turnos/admin?pagina=1&limite=20  → todos los turnos paginados (admin)
 router.get(
@@ -49,11 +54,11 @@ router.get(
   [
     validarJWT,
     esAdminRole,
-    check("pagina").optional().isInt({ min: 1 }).withMessage("pagina debe ser un entero mayor a 0"),
-    check("limite").optional().isInt({ min: 1, max: 100 }).withMessage("limite debe estar entre 1 y 100"),
+    check("pagina").optional().isInt({ min: 1 }),
+    check("limite").optional().isInt({ min: 1, max: 100 }),
     validarCampos,
   ],
-  getTurnosAdmin,
+  getTurnosAdmin
 );
 
 // GET /api/turnos/:id  → turno por ID
@@ -64,10 +69,10 @@ router.get(
     param("id").isMongoId().withMessage("ID no válido"),
     validarCampos,
   ],
-  getTurnoById,
+  getTurnoById
 );
 
-// PATCH /api/turnos/:id/comprobante  → sube comprobante de transferencia
+// PATCH /api/turnos/:id/comprobante
 router.patch(
   "/:id/comprobante",
   [
@@ -76,7 +81,41 @@ router.patch(
     check("comprobante", "La URL del comprobante es obligatoria").notEmpty(),
     validarCampos,
   ],
-  patchSubirComprobante,
+  patchSubirComprobante
+);
+
+// POST /api/turnos/:id/subir-comprobante → sube imagen
+router.post(
+  "/:id/subir-comprobante",
+  [
+    validarJWT,
+    param("id").isMongoId().withMessage("ID no válido"),
+    upload.single("img"),
+  ],
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ msg: "No se subió ninguna imagen" });
+      }
+
+      const resultado = await subirACloudinary(req.file.buffer);
+
+      const { subirComprobante } = await import("../services/turno.js");
+      const turno = await subirComprobante(
+        req.params.id,
+        resultado.secure_url,
+        req.usuario._id
+      );
+
+      res.json(turno);
+    } catch (error) {
+      console.error("Error subir comprobante:", error);
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ msg: error.message });
+      }
+      res.status(500).json({ msg: "Error interno del servidor" });
+    }
+  }
 );
 
 // PATCH /api/turnos/:id/confirmar  → confirma el turno (admin)
@@ -88,10 +127,10 @@ router.patch(
     param("id").isMongoId().withMessage("ID no válido"),
     validarCampos,
   ],
-  patchConfirmarTurno,
+  patchConfirmarTurno
 );
 
-// PATCH /api/turnos/:id/cancelar  → cancela el turno (usuario o admin)
+// PATCH /api/turnos/:id/cancelar
 router.patch(
   "/:id/cancelar",
   [
@@ -99,10 +138,10 @@ router.patch(
     param("id").isMongoId().withMessage("ID no válido"),
     validarCampos,
   ],
-  patchCancelarTurno,
+  patchCancelarTurno
 );
 
-// PATCH /api/turnos/:id/cambiar-horario  → cambia fecha y hora (usuario)
+// PATCH /api/turnos/:id/cambiar-horario
 router.patch(
   "/:id/cambiar-horario",
   [
@@ -114,35 +153,35 @@ router.patch(
       .matches(/^([01]\d|2[0-3]):([0-5]\d)$/),
     validarCampos,
   ],
-  patchCambiarHorario,
+  patchCambiarHorario
 );
 
-// PATCH /api/turnos/:id/rechazar-pago  → rechaza el comprobante (admin)
+// PATCH /api/turnos/:id/rechazar-pago
 router.patch(
   "/:id/rechazar-pago",
   [
     validarJWT,
     esAdminRole,
-    param("id").isMongoId().withMessage("ID no valido"),
+    param("id").isMongoId().withMessage("ID no válido"),
     check("motivo", "El motivo debe ser un texto").optional().isString(),
     validarCampos,
   ],
-  patchRechazarPago,
+  patchRechazarPago
 );
 
-// PATCH /api/turnos/:id/completar  → marca el turno como completado (admin)
+// PATCH /api/turnos/:id/completar
 router.patch(
   "/:id/completar",
   [
     validarJWT,
     esAdminRole,
-    param("id").isMongoId().withMessage("ID no valido"),
+    param("id").isMongoId().withMessage("ID no válido"),
     validarCampos,
   ],
-  patchCompletarTurno,
+  patchCompletarTurno
 );
 
-// DELETE /api/turnos/:id  → elimina definitivamente un turno cancelado (admin)
+// DELETE /api/turnos/:id
 router.delete(
   "/:id",
   [
@@ -151,7 +190,7 @@ router.delete(
     param("id").isMongoId().withMessage("ID no válido"),
     validarCampos,
   ],
-  deleteTurno,
+  deleteTurno
 );
 
 export default router;

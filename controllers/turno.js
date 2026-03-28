@@ -1,6 +1,10 @@
 // controllers/turno.js
 import * as TurnoService from "../services/turno.js";
+import Turno from "../models/Turno.js";
 import { handleError } from "../helpers/handleError.js";
+import logger from "../helpers/logger.js";
+
+// ==================== CONTROLADORES EXISTENTES ====================
 
 const postTurno = async (req, res) => {
   try {
@@ -108,7 +112,6 @@ const patchCompletarTurno = async (req, res) => {
   }
 };
 
-// controllers/turno.js
 const deleteTurno = async (req, res) => {
   try {
     await TurnoService.eliminarTurno(req.params.id);
@@ -118,6 +121,31 @@ const deleteTurno = async (req, res) => {
   }
 };
 
+// ==================== MIS TURNOS ====================
+
+const getMisTurnos = async (req, res) => {
+  try {
+    const usuarioId = req.usuario._id;
+
+    const turnos = await Turno.find({ usuario: usuarioId })
+      .sort({ fecha: 1, horaInicio: 1 })
+      .populate({
+        path: "productos",
+        select: "nombre precio imagen",
+      });
+
+    res.status(200).json({
+      success: true,
+      count: turnos.length,
+      data: turnos,
+    });
+  } catch (error) {
+    logger.error(`Error en getMisTurnos: ${error.message}`);
+    handleError(res, error);
+  }
+};
+
+// ==================== EXPORTACIONES FINALES ====================
 export {
   postTurno,
   getTurnosUsuario,
@@ -130,4 +158,5 @@ export {
   patchRechazarPago,
   patchCompletarTurno,
   deleteTurno,
+  getMisTurnos,     // ← Solo se exporta aquí
 };

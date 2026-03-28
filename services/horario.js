@@ -1,6 +1,7 @@
 // services/horario.js
 import ConfigHorario from "../models/ConfigHorario.js";
 import Bloqueo from "../models/Bloqueo.js";
+import Turno from "../models/Turno.js";
 import { AppError } from "../helpers/AppError.js";
 
 // ─── Helpers internos ────────────────────────────────────────────────────────
@@ -27,7 +28,6 @@ const fechaSinHora = (fecha) => {
 const obtenerConfig = async () => {
   let config = await ConfigHorario.findOne({ activo: true });
   if (!config) {
-    // Si no existe, crea la config por defecto
     config = await ConfigHorario.create({});
   }
   return config;
@@ -35,13 +35,10 @@ const obtenerConfig = async () => {
 
 const actualizarConfig = async (datos) => {
   const { diasLaborales, horaInicio, horaFin, duracionTurno } = datos;
-
   let config = await ConfigHorario.findOne({ activo: true });
-
   if (!config) {
     return await ConfigHorario.create({ diasLaborales, horaInicio, horaFin, duracionTurno });
   }
-
   return await ConfigHorario.findByIdAndUpdate(
     config._id,
     { diasLaborales, horaInicio, horaFin, duracionTurno },
@@ -57,8 +54,6 @@ const generarTurnosDelDia = (config, bloqueosDia) => {
 
   for (let minutos = inicio; minutos + duracion <= fin; minutos += duracion) {
     const horaSlot = minutosAHora(minutos);
-
-    // Verifica si este horario está bloqueado
     const estaBloqueado = bloqueosDia.some((b) => {
       if (b.tipo === "horario") {
         const bloqInicio = horaAMinutos(b.horaInicio);
@@ -67,10 +62,7 @@ const generarTurnosDelDia = (config, bloqueosDia) => {
       }
       return false;
     });
-
-    if (!estaBloqueado) {
-      turnos.push(horaSlot);
-    }
+    if (!estaBloqueado) turnos.push(horaSlot);
   }
 
   return turnos;
@@ -78,34 +70,30 @@ const generarTurnosDelDia = (config, bloqueosDia) => {
 
 const obtenerDisponibilidadSemana = async (fechaInicio) => {
   const config = await obtenerConfig();
-
-  const inicio = fechaSinHora(fechaInicio);
-  const fin = new Date(inicio.getTime() + 14 * 24 * 60 * 60 * 1000);
-
-  // Una sola query para todos los bloqueos del rango de 14 dias
-  const todosLosBloqueos = await Bloqueo.find({
-    fecha: { $gte: inicio, $lt: fin },
-  });
-
   const resultado = [];
+  const ahora = new Date();
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
 
   for (let i = 0; i < 14; i++) {
-    const fecha = new Date(inicio);
+    const fecha = new Date(fechaInicio);
     fecha.setDate(fecha.getDate() + i);
+    fecha.setHours(0, 0, 0, 0);
 
-    const inicioDia = fecha;
-    const finDia = new Date(fecha.getTime() + 24 * 60 * 60 * 1000);
+    if (fecha < hoy) continue;
 
-    // Filtra en memoria los bloqueos correspondientes a este dia
-    const bloqueosDia = todosLosBloqueos.filter((b) => {
-      const fb = new Date(b.fecha);
-      return fb >= inicioDia && fb < finDia;
+    const fechaConHora = new Date(fecha.toISOString().split("T")[0] + "T12:00:00");
+    const diaNum = fechaConHora.getDay() + 1;
+    const esLaboral = config.diasLaborales.includes(diaNum);
+
+    const bloqueos = await Bloqueo.find({
+      fecha: {
+        $gte: new Date(fecha.toISOString().split("T")[0] + "T00:00:00.000Z"),
+        $lt: new Date(fecha.toISOString().split("T")[0] + "T23:59:59.999Z"),
+      },
     });
 
-    // getDia: 0=domingo, 1=lunes ... 6=sábado → convertimos a 1=lunes ... 7=domingo
-    const diaSemana = fecha.getDay() === 0 ? 7 : fecha.getDay();
-    const esLaboral = config.diasLaborales.includes(diaSemana);
-    const bloqueoDia = bloqueosDia.some((b) => b.tipo === "dia");
+    const bloqueoDia = bloqueos.some((b) => b.tipo === "dia");
 
     if (!esLaboral || bloqueoDia) {
       resultado.push({
@@ -116,11 +104,50 @@ const obtenerDisponibilidadSemana = async (fechaInicio) => {
       continue;
     }
 
-    const turnos = generarTurnosDelDia(config, bloqueosDia);
+    const esHoy = fecha.toDateString() === ahora.toDateString();
+    const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
+
+    // Turnos ya reservados para ese día
+    const turnosOcupados = await Turno.find({
+      fecha: {
+        $gte: fechaSinHora(fecha),
+        $lt: new Date(fechaSinHora(fecha).getTime() + 24 * 60 * 60 * 1000),
+      },
+      estado: { $in: ["pendiente", "señado", "confirmado"] },
+    }).select("horaInicio");
+
+    const horasOcupadas = turnosOcupados.map((t) => t.horaInicio);
+
+    const inicio = horaAMinutos(config.horaInicio);
+    const fin = horaAMinutos(config.horaFin);
+    const duracion = config.duracionTurno;
+    const turnos = [];
+
+    for (let minutos = inicio; minutos + duracion <= fin; minutos += duracion) {
+      const horaSlot = minutosAHora(minutos);
+
+      if (esHoy && minutos <= minutosAhora) continue;
+
+      const estaBloqueado = bloqueos.some((b) => {
+        if (b.tipo === "horario") {
+          const bloqInicio = horaAMinutos(b.horaInicio);
+          const bloqFin = horaAMinutos(b.horaFin);
+          return minutos >= bloqInicio && minutos < bloqFin;
+        }
+        return false;
+      });
+
+      if (!estaBloqueado) {
+        turnos.push({
+          hora: horaSlot,
+          ocupado: horasOcupadas.includes(horaSlot),
+        });
+      }
+    }
 
     resultado.push({
       fecha: fecha.toISOString().split("T")[0],
-      disponible: turnos.length > 0,
+      disponible: turnos.some((t) => !t.ocupado),
       turnos,
     });
   }
