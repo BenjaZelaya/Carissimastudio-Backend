@@ -141,7 +141,7 @@ const confirmarTurno = async (id) => {
   }
   return await Turno.findByIdAndUpdate(
     id,
-    { estado: "confirmado" },
+    { estado: "confirmado", fechaConfirmacion: new Date() },
     { new: true },
   );
 };
@@ -177,10 +177,13 @@ const cambiarHorario = async (id, datos, usuarioId) => {
     throw new AppError("Ya realizaste el máximo de cambios de horario permitidos", 400);
   }
 
-  if (turno.ultimoCambioHorario) {
-    const diff = Date.now() - new Date(turno.ultimoCambioHorario).getTime();
-    if (diff / (1000 * 60 * 60) < 24) {
-      throw new AppError("Solo podés cambiar el horario una vez cada 24 horas", 400);
+  // Validar que estén dentro de 24 horas desde la confirmación
+  if (turno.fechaConfirmacion) {
+    const tiempoDesdeConfirmacion = Date.now() - new Date(turno.fechaConfirmacion).getTime();
+    const horasTranscurridas = tiempoDesdeConfirmacion / (1000 * 60 * 60);
+    
+    if (horasTranscurridas > 24) {
+      throw new AppError("Solo podés cambiar el horario dentro de 24 horas después de confirmar el turno", 400);
     }
   }
 
@@ -253,6 +256,45 @@ const completarTurno = async (id) => {
   );
 };
 
+const obtenerInfoCambiosDisponibles = async (id, usuarioId) => {
+  const turno = await Turno.findById(id);
+  if (!turno) throw new AppError("Turno no encontrado", 404);
+
+  if (turno.usuario.toString() !== usuarioId.toString()) {
+    throw new AppError("No tenés permiso para acceder a esta información", 403);
+  }
+
+  let cambiosRestantes = 2 - turno.cambiosHorario;
+  let tiempoRestante = null;
+  let puedesCambiar = false;
+
+  if (turno.fechaConfirmacion) {
+    const tiempoDesdeConfirmacion = Date.now() - new Date(turno.fechaConfirmacion).getTime();
+    const horasTranscurridas = tiempoDesdeConfirmacion / (1000 * 60 * 60);
+    
+    if (horasTranscurridas <= 24) {
+      puedesCambiar = cambiosRestantes > 0;
+      tiempoRestante = Math.ceil(24 - horasTranscurridas);
+    } else {
+      cambiosRestantes = 0;
+      tiempoRestante = 0;
+    }
+  } else {
+    // Si no ha sido confirmado, no puede cambiar
+    cambiosRestantes = 0;
+    puedesCambiar = false;
+  }
+
+  return {
+    cambiosRestantes,
+    cambiosRealizados: turno.cambiosHorario,
+    tiempoRestanteHoras: tiempoRestante,
+    puedesCambiar,
+    fechaConfirmacion: turno.fechaConfirmacion,
+    estado: turno.estado,
+  };
+};
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 export {
@@ -267,4 +309,5 @@ export {
   eliminarTurno,
   rechazarPago,
   completarTurno,
+  obtenerInfoCambiosDisponibles,
 };

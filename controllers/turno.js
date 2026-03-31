@@ -145,6 +145,18 @@ const getMisTurnos = async (req, res) => {
   }
 };
 
+const getInfoCambiosDisponibles = async (req, res) => {
+  try {
+    const infoCambios = await TurnoService.obtenerInfoCambiosDisponibles(
+      req.params.id,
+      req.usuario._id,
+    );
+    res.json(infoCambios);
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 // ==================== EXPORTACIONES FINALES ====================
 export {
   postTurno,
@@ -158,5 +170,6 @@ export {
   patchRechazarPago,
   patchCompletarTurno,
   deleteTurno,
-  getMisTurnos,     // ← Solo se exporta aquí
+  getMisTurnos,
+  getInfoCambiosDisponibles,
 };

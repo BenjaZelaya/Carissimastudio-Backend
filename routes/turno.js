@@ -21,6 +21,7 @@ import {
   patchRechazarPago,
   patchCompletarTurno,
   deleteTurno,
+  getInfoCambiosDisponibles,
 } from "../controllers/turno.js";
 
 const router = Router();
@@ -70,6 +71,17 @@ router.get(
     validarCampos,
   ],
   getTurnoById
+);
+
+// GET /api/turnos/:id/cambios-disponibles  → información de cambios disponibles
+router.get(
+  "/:id/cambios-disponibles",
+  [
+    validarJWT,
+    param("id").isMongoId().withMessage("ID no válido"),
+    validarCampos,
+  ],
+  getInfoCambiosDisponibles
 );
 
 // PATCH /api/turnos/:id/comprobante

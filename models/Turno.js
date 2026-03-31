@@ -75,6 +75,10 @@ const TurnoSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    fechaConfirmacion: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
