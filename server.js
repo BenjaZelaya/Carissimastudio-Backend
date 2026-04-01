@@ -21,7 +21,10 @@ const ENV_REQUERIDAS = [
   "JWT_SECRET",
   "CLOUDINARY_CLOUD_NAME",
   "CLOUDINARY_API_KEY",
-  "CLOUDINARY_API_SECRET"
+  "CLOUDINARY_API_SECRET",
+  "EMAIL_USER",
+  "EMAIL_PASSWORD",
+  "ADMIN_EMAIL"
 ];
 
 const envFaltantes = ENV_REQUERIDAS.filter((key) => !process.env[key]);

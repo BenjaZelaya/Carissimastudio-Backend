@@ -3,6 +3,8 @@ import Turno from "../models/Turno.js";
 import Bloqueo from "../models/Bloqueo.js";
 import ConfigHorario from "../models/ConfigHorario.js";
 import { AppError } from "../helpers/AppError.js";
+import { enviarEmailConfirmacionReserva, enviarEmailNotificacionAdmin, enviarEmailConfirmacionTurno, enviarEmailCancelacionTurnoAlUsuario, enviarEmailCancelacionTurnoAlAdmin } from "./email.js";
+import logger from "../helpers/logger.js";
 
 // ─── Helpers internos ────────────────────────────────────────────────────────
 
@@ -126,11 +128,34 @@ const subirComprobante = async (id, urlComprobante, usuarioId) => {
     throw new AppError("Este turno no puede ser cargado en su estado actual", 400);
   }
 
-  return await Turno.findByIdAndUpdate(
+  const turnoActualizado = await Turno.findByIdAndUpdate(
     id,
     { comprobante: urlComprobante, estado: "señado" },
     { new: true },
-  );
+  ).populate("usuario", "nombre apellido email telefono")
+   .populate("productos", "nombreProducto precio img");
+
+  // ─── Enviar emails al usuario y al administrador ───────────────────────────
+
+  // Email al usuario
+  try {
+    await enviarEmailConfirmacionReserva(turnoActualizado.usuario, turnoActualizado);
+  } catch (emailError) {
+    logger.error(`Error enviando email al usuario:`, emailError.message);
+    // No interrumpimos el flujo, continuamos enviando el email del admin
+  }
+
+  // Email al administrador
+  try {
+    await enviarEmailNotificacionAdmin(turnoActualizado.usuario, turnoActualizado);
+  } catch (emailError) {
+    logger.error(`Error enviando email al admin:`, emailError.message);
+    // No interrumpimos el flujo
+  }
+
+  logger.info(`✓ Turno ${id} actualizado con estado "señado" y emails procesados`);
+
+  return turnoActualizado;
 };
 
 const confirmarTurno = async (id) => {
@@ -139,11 +164,26 @@ const confirmarTurno = async (id) => {
   if (turno.estado !== "señado") {
     throw new AppError("El turno no tiene comprobante cargado aún", 400);
   }
-  return await Turno.findByIdAndUpdate(
+
+  const turnoConfirmado = await Turno.findByIdAndUpdate(
     id,
     { estado: "confirmado", fechaConfirmacion: new Date() },
     { new: true },
-  );
+  ).populate("usuario", "nombre apellido email telefono")
+   .populate("productos", "nombreProducto precio img");
+
+  // ─── Enviar email al usuario notificando la confirmación ───────────────────
+
+  try {
+    await enviarEmailConfirmacionTurno(turnoConfirmado.usuario, turnoConfirmado);
+  } catch (emailError) {
+    logger.error(`Error enviando email de confirmación al usuario:`, emailError.message);
+    // No interrumpimos el flujo, el turno ya está confirmado
+  }
+
+  logger.info(`✓ Turno ${id} confirmado y email enviado al usuario`);
+
+  return turnoConfirmado;
 };
 
 const cancelarTurno = async (id, usuarioId, esAdmin) => {
@@ -154,11 +194,31 @@ const cancelarTurno = async (id, usuarioId, esAdmin) => {
     throw new AppError("No tenés permiso para cancelar este turno", 403);
   }
 
-  return await Turno.findByIdAndUpdate(
+  const turnoCancelado = await Turno.findByIdAndUpdate(
     id,
     { estado: "cancelado" },
     { new: true },
-  );
+  ).populate("usuario", "nombre apellido email telefono")
+   .populate("productos", "nombreProducto precio img");
+
+  // ─── Enviar emails según quién canceló ─────────────────────────────────────
+
+  try {
+    if (esAdmin) {
+      // Si el admin cancela, notificar al usuario
+      await enviarEmailCancelacionTurnoAlUsuario(turnoCancelado.usuario, turnoCancelado);
+    } else {
+      // Si el usuario cancela, notificar al admin
+      await enviarEmailCancelacionTurnoAlAdmin(turnoCancelado.usuario, turnoCancelado);
+    }
+  } catch (emailError) {
+    logger.error(`Error enviando email de cancelación:`, emailError.message);
+    // No interrumpimos el flujo, la cancelación ya está lista
+  }
+
+  logger.info(`✓ Turno ${id} cancelado y email enviado`);
+
+  return turnoCancelado;
 };
 
 const cambiarHorario = async (id, datos, usuarioId) => {
