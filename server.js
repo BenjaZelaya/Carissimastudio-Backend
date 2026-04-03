@@ -13,6 +13,7 @@ import categoriaRoutes from "./routes/Categoria.js";
 import productosRoutes from "./routes/Producto.js";
 import horarioRoutes from "./routes/horario.js";
 import turnoRoutes from "./routes/turno.js";
+import pagoRoutes from "./routes/pago.js";
 
 // ─── Validacion de variables de entorno ──────────────────────────────────────
 
@@ -88,6 +89,8 @@ app.use(express.json());
     app.use("/api/productos", productosRoutes);
     app.use("/api/horarios", horarioRoutes);
     app.use("/api/turnos", turnoRoutes);
+    app.use("/api/pagos", pagoRoutes);
+
 
     app.get("/", (_req, res) => {
       res.json({ message: "Backend Carissima Studio funcionando" });
