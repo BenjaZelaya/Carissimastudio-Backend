@@ -23,9 +23,6 @@ const ENV_REQUERIDAS = [
   "CLOUDINARY_CLOUD_NAME",
   "CLOUDINARY_API_KEY",
   "CLOUDINARY_API_SECRET",
-  "EMAIL_USER",
-  "EMAIL_PASSWORD",
-  "ADMIN_EMAIL"
 ];
 
 const envFaltantes = ENV_REQUERIDAS.filter((key) => !process.env[key]);
@@ -39,20 +36,34 @@ if (envFaltantes.length > 0) {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ─── CORS Mejorado ───────────────────────────────────────────────────────────
+// ─── CORS ────────────────────────────────────────────────────────────────────
+
+const originesPermitidos = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://carissima-studio.vercel.app",
+  "https://estudio-carissima.vercel.app",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: (origin, callback) => {
+      // Permite requests sin origin (Postman, mobile apps, etc)
+      if (!origin) return callback(null, true);
+      if (originesPermitidos.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS bloqueado para: ${origin}`));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "x-token"],
-    exposedHeaders: ["Authorization"]
+    exposedHeaders: ["Authorization"],
   })
 );
 
-// Manejo explícito de preflight OPTIONS (CORREGIDO para Express 5)
-app.options("/*splat", cors());
+app.options("*", cors());
 
 // ─── Middlewares de seguridad ────────────────────────────────────────────────
 
@@ -77,7 +88,7 @@ const authLimiter = rateLimit({
 app.use(globalLimiter);
 app.use(express.json());
 
-// ─── Rutas ───────────────────────────────────────────────────────────────────
+// ─── Servidor ────────────────────────────────────────────────────────────────
 
 (async () => {
   try {
@@ -91,16 +102,12 @@ app.use(express.json());
     app.use("/api/turnos", turnoRoutes);
     app.use("/api/pagos", pagoRoutes);
 
-
     app.get("/", (_req, res) => {
       res.json({ message: "Backend Carissima Studio funcionando" });
     });
 
-    // Ruta 404 - Catch all (también corregido)
-    app.use("/*splat", (req, res) => {
-      res.status(404).json({ 
-        msg: `Ruta no encontrada: ${req.originalUrl}` 
-      });
+    app.use("*", (req, res) => {
+      res.status(404).json({ msg: `Ruta no encontrada: ${req.originalUrl}` });
     });
 
     app.listen(PORT, () => {
@@ -111,6 +118,7 @@ app.use(express.json());
       logger.info(`Productos:  http://localhost:${PORT}/api/productos`);
       logger.info(`Horarios:   http://localhost:${PORT}/api/horarios`);
       logger.info(`Turnos:     http://localhost:${PORT}/api/turnos`);
+      logger.info(`Pagos:      http://localhost:${PORT}/api/pagos`);
     });
   } catch (error) {
     logger.error({ message: "Error al iniciar el servidor", stack: error.stack });
