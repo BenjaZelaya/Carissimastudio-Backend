@@ -41,7 +41,7 @@ const quitarProducto = async (categoriaId, productoId) => {
 const obtenerCategorias = async ({ page = 1, limit = 20 } = {}) => {
   const skip = (page - 1) * limit;
   const [categorias, total] = await Promise.all([
-    Categoria.find({ estado: true }).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Categoria.find({ estado: true }).sort({ orden: 1, createdAt: -1 }).skip(skip).limit(limit),
     Categoria.countDocuments({ estado: true }),
   ]);
   return { total, page: Number(page), limit: Number(limit), categorias };

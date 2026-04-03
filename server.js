@@ -6,16 +6,27 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { dbConnection } from "./database/db.js";
 import logger from "./helpers/logger.js";
+
 import authRoutes from "./routes/auth.js";
 import usuarioRoutes from "./routes/Usuario.js";
 import categoriaRoutes from "./routes/Categoria.js";
 import productosRoutes from "./routes/Producto.js";
 import horarioRoutes from "./routes/horario.js";
 import turnoRoutes from "./routes/turno.js";
+import pagoRoutes from "./routes/pago.js";
 
 // ─── Validacion de variables de entorno ──────────────────────────────────────
 
-const ENV_REQUERIDAS = ["MONGO_URI", "JWT_SECRET", "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"];
+const ENV_REQUERIDAS = [
+  "MONGO_URI",
+  "JWT_SECRET",
+  "CLOUDINARY_CLOUD_NAME",
+  "CLOUDINARY_API_KEY",
+  "CLOUDINARY_API_SECRET",
+  "EMAIL_USER",
+  "EMAIL_PASSWORD",
+  "ADMIN_EMAIL"
+];
 
 const envFaltantes = ENV_REQUERIDAS.filter((key) => !process.env[key]);
 if (envFaltantes.length > 0) {
@@ -28,45 +39,36 @@ if (envFaltantes.length > 0) {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ─── Middlewares de seguridad ─────────────────────────────────────────────────
+// ─── CORS Mejorado ───────────────────────────────────────────────────────────
 
-/**
- * Helmet agrega headers HTTP de seguridad para proteger contra ataques
- * comunes como clickjacking, sniffing de contenido y XSS.
- */
-app.use(helmet());
-
-/**
- * CORS restringido al origen del frontend definido en la variable de entorno
- * FRONTEND_URL. En desarrollo puede dejarse sin definir para permitir cualquier origen.
- */
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "*",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allowedHeaders: ["Content-Type", "x-token"],
+    origin: "http://localhost:5173",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-token"],
+    exposedHeaders: ["Authorization"]
   })
 );
 
-/**
- * Rate limiting global: 60 requests cada 15 minutos por IP.
- * Cubre todos los endpoints para prevenir abuso general.
- */
+// Manejo explícito de preflight OPTIONS (CORREGIDO para Express 5)
+app.options("/*splat", cors());
+
+// ─── Middlewares de seguridad ────────────────────────────────────────────────
+
+app.use(helmet());
+
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 60,
+  max: 500,
   message: { msg: "Demasiadas solicitudes. Intenta nuevamente en 15 minutos." },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-/**
- * Rate limiting sobre los endpoints de autenticacion para prevenir
- * ataques de fuerza bruta. Limite: 20 intentos cada 15 minutos por IP.
- */
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 50,
   message: { msg: "Demasiados intentos. Intenta nuevamente en 15 minutos." },
   standardHeaders: true,
   legacyHeaders: false,
@@ -75,13 +77,11 @@ const authLimiter = rateLimit({
 app.use(globalLimiter);
 app.use(express.json());
 
-// ─── Servidor ────────────────────────────────────────────────────────────────
+// ─── Rutas ───────────────────────────────────────────────────────────────────
 
 (async () => {
   try {
     await dbConnection();
-
-    // ─── Rutas ───────────────────────────────────────────────────────────────
 
     app.use("/api/auth", authLimiter, authRoutes);
     app.use("/api/usuarios", usuarioRoutes);
@@ -89,9 +89,18 @@ app.use(express.json());
     app.use("/api/productos", productosRoutes);
     app.use("/api/horarios", horarioRoutes);
     app.use("/api/turnos", turnoRoutes);
+    app.use("/api/pagos", pagoRoutes);
+
 
     app.get("/", (_req, res) => {
       res.json({ message: "Backend Carissima Studio funcionando" });
+    });
+
+    // Ruta 404 - Catch all (también corregido)
+    app.use("/*splat", (req, res) => {
+      res.status(404).json({ 
+        msg: `Ruta no encontrada: ${req.originalUrl}` 
+      });
     });
 
     app.listen(PORT, () => {

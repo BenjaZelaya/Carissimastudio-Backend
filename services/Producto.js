@@ -18,7 +18,7 @@ const buscarProductoActivo = async (id) => {
 const obtenerProductos = async ({ page = 1, limit = 20 } = {}) => {
   const skip = (page - 1) * limit;
   const [productos, total] = await Promise.all([
-    Producto.find({ estado: true }).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Producto.find({ estado: true }).sort({ orden: 1, createdAt: -1 }).skip(skip).limit(limit),
     Producto.countDocuments({ estado: true }),
   ]);
   return { total, page: Number(page), limit: Number(limit), productos };
