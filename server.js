@@ -36,6 +36,9 @@ if (envFaltantes.length > 0) {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust proxy necesario para Render y otros proxies
+app.set("trust proxy", 1);
+
 // ─── CORS ────────────────────────────────────────────────────────────────────
 
 const originesPermitidos = [
@@ -49,7 +52,6 @@ const originesPermitidos = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Permite requests sin origin (Postman, mobile apps, etc)
       if (!origin) return callback(null, true);
       if (originesPermitidos.includes(origin)) {
         return callback(null, true);
@@ -63,7 +65,7 @@ app.use(
   })
 );
 
-app.options("*", cors());
+app.options(/.*/, cors());
 
 // ─── Middlewares de seguridad ────────────────────────────────────────────────
 
@@ -106,7 +108,7 @@ app.use(express.json());
       res.json({ message: "Backend Carissima Studio funcionando" });
     });
 
-    app.use("*", (req, res) => {
+    app.use(/.*/, (req, res) => {
       res.status(404).json({ msg: `Ruta no encontrada: ${req.originalUrl}` });
     });
 
