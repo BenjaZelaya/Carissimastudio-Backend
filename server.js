@@ -36,6 +36,8 @@ if (envFaltantes.length > 0) {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+app.set("trust proxy", 1);
+
 // ─── CORS ────────────────────────────────────────────────────────────────────
 
 const originesPermitidos = [
@@ -46,24 +48,33 @@ const originesPermitidos = [
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Permite requests sin origin (Postman, mobile apps, etc)
-      if (!origin) return callback(null, true);
-      if (originesPermitidos.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error(`CORS bloqueado para: ${origin}`));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-token"],
-    exposedHeaders: ["Authorization"],
-  })
-);
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (originesPermitidos.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS bloqueado para: ${origin}`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-token"],
+  exposedHeaders: ["Authorization"],
+};
 
-app.options("*", cors());
+app.use(cors(corsOptions));
+
+// Preflight manual sin usar app.options con wildcard
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+    res.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type,Authorization,x-token");
+    res.header("Access-Control-Allow-Credentials", "true");
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 // ─── Middlewares de seguridad ────────────────────────────────────────────────
 
@@ -106,7 +117,7 @@ app.use(express.json());
       res.json({ message: "Backend Carissima Studio funcionando" });
     });
 
-    app.use("*", (req, res) => {
+    app.use((req, res) => {
       res.status(404).json({ msg: `Ruta no encontrada: ${req.originalUrl}` });
     });
 
