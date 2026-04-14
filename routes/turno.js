@@ -7,13 +7,12 @@ import { validarJWT } from "../middlewares/validar-jwt.js";
 import { esAdminRole } from "../middlewares/validarRoles.js";
 import { upload, subirACloudinary } from "../middlewares/upload.js";
 
-// Import único de controladores
 import {
   postTurno,
   getTurnosUsuario,
   getTurnosAdmin,
   getTurnoById,
-  getMisTurnos,           // ← Solo una vez
+  getMisTurnos,
   patchSubirComprobante,
   patchConfirmarTurno,
   patchCancelarTurno,
@@ -28,7 +27,7 @@ const router = Router();
 
 // ==================== RUTAS ====================
 
-// POST /api/turnos  → crea un turno (usuario logueado)
+// POST /api/turnos → crea un turno (usuario logueado)
 router.post(
   "/",
   [
@@ -46,10 +45,10 @@ router.post(
   postTurno
 );
 
-// GET /api/turnos/mis-turnos  → turnos del usuario logueado (LA QUE NECESITAS)
+// GET /api/turnos/mis-turnos → turnos del usuario logueado
 router.get("/mis-turnos", validarJWT, getMisTurnos);
 
-// GET /api/turnos/admin?pagina=1&limite=20  → todos los turnos paginados (admin)
+// GET /api/turnos/admin → todos los turnos paginados (admin)
 router.get(
   "/admin",
   [
@@ -62,46 +61,13 @@ router.get(
   getTurnosAdmin
 );
 
-// GET /api/turnos/:id  → turno por ID
-router.get(
-  "/:id",
-  [
-    validarJWT,
-    param("id").isMongoId().withMessage("ID no válido"),
-    validarCampos,
-  ],
-  getTurnoById
-);
-
-// GET /api/turnos/:id/cambios-disponibles  → información de cambios disponibles
-router.get(
-  "/:id/cambios-disponibles",
-  [
-    validarJWT,
-    param("id").isMongoId().withMessage("ID no válido"),
-    validarCampos,
-  ],
-  getInfoCambiosDisponibles
-);
-
-// PATCH /api/turnos/:id/comprobante
-router.patch(
-  "/:id/comprobante",
-  [
-    validarJWT,
-    param("id").isMongoId().withMessage("ID no válido"),
-    check("comprobante", "La URL del comprobante es obligatoria").notEmpty(),
-    validarCampos,
-  ],
-  patchSubirComprobante
-);
-
-// POST /api/turnos/:id/subir-comprobante → sube imagen
+// POST /api/turnos/:id/subir-comprobante → sube imagen (ANTES de /:id)
 router.post(
   "/:id/subir-comprobante",
   [
     validarJWT,
     param("id").isMongoId().withMessage("ID no válido"),
+    validarCampos,
     upload.single("img"),
   ],
   async (req, res) => {
@@ -130,7 +96,30 @@ router.post(
   }
 );
 
-// PATCH /api/turnos/:id/confirmar  → confirma el turno (admin)
+// GET /api/turnos/:id/cambios-disponibles (ANTES de /:id)
+router.get(
+  "/:id/cambios-disponibles",
+  [
+    validarJWT,
+    param("id").isMongoId().withMessage("ID no válido"),
+    validarCampos,
+  ],
+  getInfoCambiosDisponibles
+);
+
+// PATCH /api/turnos/:id/comprobante (ANTES de /:id)
+router.patch(
+  "/:id/comprobante",
+  [
+    validarJWT,
+    param("id").isMongoId().withMessage("ID no válido"),
+    check("comprobante", "La URL del comprobante es obligatoria").notEmpty(),
+    validarCampos,
+  ],
+  patchSubirComprobante
+);
+
+// PATCH /api/turnos/:id/confirmar (ANTES de /:id)
 router.patch(
   "/:id/confirmar",
   [
@@ -142,7 +131,7 @@ router.patch(
   patchConfirmarTurno
 );
 
-// PATCH /api/turnos/:id/cancelar
+// PATCH /api/turnos/:id/cancelar (ANTES de /:id)
 router.patch(
   "/:id/cancelar",
   [
@@ -153,7 +142,7 @@ router.patch(
   patchCancelarTurno
 );
 
-// PATCH /api/turnos/:id/cambiar-horario
+// PATCH /api/turnos/:id/cambiar-horario (ANTES de /:id)
 router.patch(
   "/:id/cambiar-horario",
   [
@@ -168,7 +157,7 @@ router.patch(
   patchCambiarHorario
 );
 
-// PATCH /api/turnos/:id/rechazar-pago
+// PATCH /api/turnos/:id/rechazar-pago (ANTES de /:id)
 router.patch(
   "/:id/rechazar-pago",
   [
@@ -181,7 +170,7 @@ router.patch(
   patchRechazarPago
 );
 
-// PATCH /api/turnos/:id/completar
+// PATCH /api/turnos/:id/completar (ANTES de /:id)
 router.patch(
   "/:id/completar",
   [
@@ -193,7 +182,7 @@ router.patch(
   patchCompletarTurno
 );
 
-// DELETE /api/turnos/:id
+// DELETE /api/turnos/:id (ANTES de GET /:id)
 router.delete(
   "/:id",
   [
@@ -203,6 +192,17 @@ router.delete(
     validarCampos,
   ],
   deleteTurno
+);
+
+// GET /api/turnos/:id → AL FINAL, después de todas las rutas específicas
+router.get(
+  "/:id",
+  [
+    validarJWT,
+    param("id").isMongoId().withMessage("ID no válido"),
+    validarCampos,
+  ],
+  getTurnoById
 );
 
 export default router;
