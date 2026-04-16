@@ -3,7 +3,7 @@ import Turno from "../models/Turno.js";
 import Bloqueo from "../models/Bloqueo.js";
 import ConfigHorario from "../models/ConfigHorario.js";
 import { AppError } from "../helpers/AppError.js";
-import { enviarEmailConfirmacionReserva, enviarEmailNotificacionAdmin, enviarEmailConfirmacionTurno, enviarEmailCancelacionTurnoAlUsuario, enviarEmailCancelacionTurnoAlAdmin } from "./email.js";
+import { enviarEmailConfirmacionReserva, enviarEmailNotificacionAdmin, enviarEmailConfirmacionTurno, enviarEmailCancelacionTurnoAlUsuario, enviarEmailCancelacionTurnoAlAdmin, enviarEmailCambioHorario } from "./email.js";
 import logger from "../helpers/logger.js";
 
 // ─── Helpers internos ────────────────────────────────────────────────────────
@@ -263,7 +263,7 @@ const cambiarHorario = async (id, datos, usuarioId) => {
     throw new AppError("Ese horario ya está reservado", 409);
   }
 
-  return await Turno.findByIdAndUpdate(
+  const turnoActualizado = await Turno.findByIdAndUpdate(
     id,
     {
       fecha: new Date(datos.fecha),
@@ -272,7 +272,20 @@ const cambiarHorario = async (id, datos, usuarioId) => {
       ultimoCambioHorario: new Date(),
     },
     { new: true },
-  );
+  ).populate("usuario", "nombre email")
+   .populate("productos", "nombreProducto precio");
+
+  // ─── Enviar email al usuario notificando el cambio ───
+  try {
+    await enviarEmailCambioHorario(turnoActualizado.usuario, turnoActualizado);
+  } catch (emailError) {
+    logger.error(`Error enviando email de cambio de horario:`, emailError.message);
+    // No interrumpimos el flujo, el cambio ya está hecho
+  }
+
+  logger.info(`✓ Turno ${id} modificado y email de cambio enviado al usuario`);
+
+  return turnoActualizado;
 };
 
 const eliminarTurno = async (id) => {

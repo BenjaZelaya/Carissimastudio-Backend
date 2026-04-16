@@ -319,4 +319,60 @@ const enviarEmailCancelacionTurnoAlAdmin = async (usuario, turno) => {
   }
 };
 
-export { enviarEmailConfirmacionReserva, enviarEmailNotificacionAdmin, enviarEmailConfirmacionTurno, enviarEmailCancelacionTurnoAlUsuario, enviarEmailCancelacionTurnoAlAdmin };
+const enviarEmailCambioHorario = async (usuario, turno) => {
+  const { nombre, email } = usuario;
+  const { fecha, horaInicio, productos } = turno;
+
+  const fechaFormato = new Date(fecha).toLocaleDateString("es-AR");
+
+  let productosHtml = "";
+  for (const p of productos) {
+    productosHtml += "<tr style='border-bottom: 1px solid #ddd;'><td style='padding: 8px; font-size: 14px;'>" + p.nombreProducto + "</td><td style='padding: 8px; font-size: 14px; text-align: right; color: #0284c7;'><strong>$" + p.precio + "</strong></td></tr>";
+  }
+
+  const htmlContent = 
+    "<!DOCTYPE html>" +
+    "<html>" +
+    "<head><meta charset='UTF-8'></head>" +
+    "<body style='font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f5f5;'>" +
+    "<table width='100%' style='background-color: #f5f5f5;'><tr><td align='center' style='padding: 20px;'>" +
+    "<table width='600' style='background-color: white; border-radius: 10px; border: 1px solid #ddd;'>" +
+    "<tr style='background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);'><td style='padding: 30px; text-align: center; color: white;'>" +
+    "<h1 style='margin: 0; font-size: 28px; font-weight: bold;'>Horario Modificado</h1>" +
+    "<p style='margin: 5px 0 0 0; font-size: 14px;'>Carissima Studio</p>" +
+    "</td></tr>" +
+    "<tr><td style='padding: 30px;'>" +
+    "<p style='font-size: 16px; color: #333;'>Hola <strong>" + nombre + "</strong></p>" +
+    "<p style='font-size: 14px; color: #666; line-height: 1.6;'>Tu turno ha sido modificado exitosamente.</p>" +
+    "<div style='background-color: #e0f2fe; border-left: 4px solid #0284c7; padding: 15px; margin: 20px 0; border-radius: 5px;'>" +
+    "<h3 style='margin: 0 0 15px 0; color: #0369a1; font-size: 13px; font-weight: bold;'>TU NUEVO HORARIO</h3>" +
+    "<p style='margin: 8px 0; font-size: 14px;'><strong>Fecha:</strong> " + fechaFormato + "</p>" +
+    "<p style='margin: 8px 0; font-size: 14px;'><strong>Hora:</strong> " + horaInicio + "</p>" +
+    "<p style='margin: 8px 0 5px 0; font-size: 14px;'><strong>Servicios:</strong></p>" +
+    "<table width='100%' style='font-size: 13px;'>" + productosHtml + "</table>" +
+    "</div>" +
+    "<p style='font-size: 13px; color: #666; background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 5px; margin: 20px 0;'><strong>Recordá:</strong> Tu nuevo turno está confirmado. Te sugerimos llegar 10 minutos antes.</p>" +
+    "</td></tr>" +
+    "<tr style='background-color: #f5f5f5; border-top: 1px solid #ddd;'><td style='padding: 15px; text-align: center; font-size: 11px; color: #999;'>Carissima Studio 2026</td></tr>" +
+    "</table>" +
+    "</td></tr></table>" +
+    "</body>" +
+    "</html>";
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: "Tu horario ha sido modificado - Carissima Studio",
+    html: htmlContent,
+  };
+
+  try {
+    logger.info("EMAIL CAMBIO HORARIO: " + email);
+    const info = await transporter.sendMail(mailOptions);
+    logger.info("OK EMAIL CAMBIO HORARIO ENVIADO: " + info.messageId);
+  } catch (error) {
+    logger.error("ERROR EMAIL CAMBIO HORARIO: " + error.message);
+  }
+};
+
+export { enviarEmailConfirmacionReserva, enviarEmailNotificacionAdmin, enviarEmailConfirmacionTurno, enviarEmailCancelacionTurnoAlUsuario, enviarEmailCancelacionTurnoAlAdmin, enviarEmailCambioHorario };
