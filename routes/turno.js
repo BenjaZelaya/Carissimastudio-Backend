@@ -22,6 +22,7 @@ import {
   deleteTurno,
   getInfoCambiosDisponibles,
 } from "../controllers/turno.js";
+import { enviarEmailCancelacionTurnoAlUsuario, enviarEmailCancelacionTurnoAlAdmin } from "../services/email.js";
 
 const router = Router();
 
@@ -203,6 +204,50 @@ router.get(
     validarCampos,
   ],
   getTurnoById
+);
+
+// TEST ENDPOINT - Prueba de envío de emails de cancelación
+router.get(
+  "/test/email-cancelacion",
+  [validarJWT, esAdminRole],
+  async (req, res) => {
+    const usuarioTest = {
+      nombre: "Usuario Prueba",
+      apellido: "Test",
+      email: process.env.ADMIN_EMAIL,
+      telefono: "3813349985"
+    };
+    
+    const turnoTest = {
+      fecha: new Date(),
+      horaInicio: "14:00",
+      productos: [
+        { nombreProducto: "Servicio Test", precio: 1000 }
+      ]
+    };
+
+    try {
+      console.log("🧪 ENVIANDO EMAIL DE PRUEBA AL USUARIO...");
+      await enviarEmailCancelacionTurnoAlUsuario(usuarioTest, turnoTest);
+      
+      console.log("🧪 ENVIANDO EMAIL DE PRUEBA AL ADMIN...");
+      await enviarEmailCancelacionTurnoAlAdmin(usuarioTest, turnoTest);
+      
+      res.json({ 
+        msg: "✅ Emails de prueba enviados correctamente",
+        emails_enviados: {
+          usuario: usuarioTest.email,
+          admin: process.env.ADMIN_EMAIL
+        }
+      });
+    } catch (error) {
+      console.error("❌ Error en prueba de email:", error);
+      res.status(500).json({ 
+        msg: "❌ Error al enviar emails de prueba",
+        error: error.message 
+      });
+    }
+  }
 );
 
 export default router;
