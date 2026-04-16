@@ -71,8 +71,11 @@ const generarTurnosDelDia = (config, bloqueosDia) => {
 const obtenerDisponibilidadSemana = async (fechaInicio) => {
   const config = await obtenerConfig();
   const resultado = [];
-  const ahora = new Date();
-  const hoy = new Date();
+  // Usar zona horaria de Argentina (UTC-3)
+  const ahoraUTC = new Date();
+  const ahoraAR = new Date(ahoraUTC.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+  const ahora = ahoraAR;
+  const hoy = new Date(ahoraAR.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
   hoy.setHours(0, 0, 0, 0);
 
   for (let i = 0; i < 14; i++) {
@@ -104,8 +107,10 @@ const obtenerDisponibilidadSemana = async (fechaInicio) => {
       continue;
     }
 
-    const esHoy = fecha.toDateString() === ahora.toDateString();
-    const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
+    // Convertir variables de hora a zona horaria Argentina para comparación
+    const ahoraARComp = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
+    const esHoy = fecha.toDateString() === ahoraARComp.toDateString();
+    const minutosAhora = ahoraARComp.getHours() * 60 + ahoraARComp.getMinutes();
 
     // Turnos ya reservados para ese día
     const turnosOcupados = await Turno.find({
