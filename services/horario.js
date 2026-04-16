@@ -126,7 +126,7 @@ const obtenerDisponibilidadSemana = async (fechaInicio) => {
     for (let minutos = inicio; minutos + duracion <= fin; minutos += duracion) {
       const horaSlot = minutosAHora(minutos);
 
-      if (esHoy && minutos <= minutosAhora) continue;
+      if (esHoy && minutos < minutosAhora) continue;
 
       const estaBloqueado = bloqueos.some((b) => {
         if (b.tipo === "horario") {
