@@ -131,7 +131,7 @@ const getMisTurnos = async (req, res) => {
       .sort({ fecha: 1, horaInicio: 1 })
       .populate({
         path: "productos",
-        select: "nombre precio imagen",
+        select: "nombreProducto precio img",
       });
 
     res.status(200).json({
