@@ -21,30 +21,43 @@ const crearPreferencia = async (turnoId, usuarioId) => {
 
   const preference = new Preference(client);
 
+  // Validar y sanitizar datos
+  const unitPrice = parseFloat(turno.seña) || 0;
+  if (unitPrice <= 0) {
+    throw new AppError("Monto de pago inválido", 400);
+  }
+
+  const productosNombres = turno.productos
+    .map(p => p.nombreProducto || "Servicio")
+    .join(", ")
+    .substring(0, 256); // Limitar a 256 caracteres
+
   const items = [{
     id: turno._id.toString(),
-    title: `Servicios: ${turno.productos.map(p => p.nombreProducto).join(", ")}`,
+    title: `Carissima Studio - ${productosNombres}`,
     quantity: 1,
-    unit_price: turno.seña,
+    unit_price: Math.round(unitPrice * 100) / 100,
     currency_id: "ARS",
   }];
 
-  const resultado = await preference.create({
-  body: {
+  const bodyData = {
     items,
-    external_reference: turnoId,
-    back_urls: {
-      success: `${process.env.FRONTEND_URL || "http://localhost:5173"}/pago/resultado?estado=aprobado`,
-      failure: `${process.env.FRONTEND_URL || "http://localhost:5173"}/pago/resultado?estado=rechazado`,
-      pending: `${process.env.FRONTEND_URL || "http://localhost:5173"}/pago/resultado?estado=pendiente`,
+    external_reference: turnoId.toString(),
+    payer: {
+      email: turno.usuario?.email || "",
     },
-    // auto_return solo funciona con URLs públicas, no localhost
-    ...(process.env.FRONTEND_URL && { auto_return: "approved" }),
-    notification_url: process.env.BACKEND_URL
-      ? `${process.env.BACKEND_URL}/api/pagos/webhook`
-      : undefined,
-  },
-});
+    back_urls: {
+      success: `${process.env.FRONTEND_URL}/pago/resultado?estado=aprobado`,
+      failure: `${process.env.FRONTEND_URL}/pago/resultado?estado=rechazado`,
+      pending: `${process.env.FRONTEND_URL}/pago/resultado?estado=pendiente`,
+    },
+  };
+
+  if (process.env.BACKEND_URL) {
+    bodyData.notification_url = `${process.env.BACKEND_URL}/api/pagos/webhook`;
+  }
+
+  const resultado = await preference.create({ body: bodyData });
 
   return {
     preferenceId: resultado.id,
