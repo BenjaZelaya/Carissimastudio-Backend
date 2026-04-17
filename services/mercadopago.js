@@ -70,26 +70,34 @@ const crearPreferencia = async (turnoId, usuarioId) => {
 };
 
 const procesarWebhook = async (data) => {
-  if (data.type !== "payment") return;
+  console.log("Webhook recibido:", { type: data.type, paymentId: data.data?.id });
+  
+  if (data.type !== "payment") {
+    console.log("No es payment, ignorando");
+    return;
+  }
 
   const { MercadoPagoConfig: MPConfig, Payment } = await import("mercadopago");
   const paymentClient = new Payment(new MPConfig({ accessToken: process.env.MP_ACCESS_TOKEN }));
 
   const payment = await paymentClient.get({ id: data.data.id });
+  console.log("Payment obtenido:", { id: payment.id, status: payment.status, external_reference: payment.external_reference });
 
   const turnoId = payment.external_reference;
   const estado = payment.status;
 
   if (estado === "approved") {
-    await Turno.findByIdAndUpdate(turnoId, {
+    const resultado = await Turno.findByIdAndUpdate(turnoId, {
       estado: "confirmado",
       metodoPago: "mercadopago",
       comprobante: payment.id.toString(),
-    });
+    }, { new: true });
+    console.log("Turno actualizado a confirmado:", turnoId);
   } else if (estado === "rejected") {
     await Turno.findByIdAndUpdate(turnoId, {
       estado: "pago_rechazado",
     });
+    console.log("Turno rechazado:", turnoId);
   }
 };
 
