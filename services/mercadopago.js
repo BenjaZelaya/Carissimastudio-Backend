@@ -21,13 +21,13 @@ const crearPreferencia = async (turnoId, usuarioId) => {
 
   const preference = new Preference(client);
 
-  const items = turno.productos.map((p) => ({
-    id: p._id.toString(),
-    title: p.nombreProducto,
+  const items = [{
+    id: turno._id.toString(),
+    title: `Servicios: ${turno.productos.map(p => p.nombreProducto).join(", ")}`,
     quantity: 1,
-    unit_price: Math.round(turno.seña / turno.productos.length),
+    unit_price: turno.seña,
     currency_id: "ARS",
-  }));
+  }];
 
   const resultado = await preference.create({
   body: {
