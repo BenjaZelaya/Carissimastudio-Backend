@@ -91,6 +91,7 @@ const procesarWebhook = async (data) => {
       estado: "confirmado",
       metodoPago: "mercadopago",
       comprobante: payment.id.toString(),
+      fechaConfirmacion: new Date(),
     }, { new: true });
     console.log("Turno actualizado a confirmado:", turnoId);
   } else if (estado === "rejected") {
