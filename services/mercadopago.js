@@ -9,7 +9,8 @@ const client = new MercadoPagoConfig({
 
 const crearPreferencia = async (turnoId, usuarioId) => {
   const turno = await Turno.findById(turnoId)
-    .populate("productos", "nombreProducto precio img");
+    .populate("productos", "nombreProducto precio img")
+    .populate("usuario", "email");
 
   if (!turno) throw new AppError("Turno no encontrado", 404);
   if (turno.usuario.toString() !== usuarioId.toString()) {
