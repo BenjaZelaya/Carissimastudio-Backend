@@ -13,7 +13,7 @@ const crearPreferencia = async (turnoId, usuarioId) => {
     .populate("usuario", "email");
 
   if (!turno) throw new AppError("Turno no encontrado", 404);
-  if (turno.usuario.toString() !== usuarioId.toString()) {
+  if (turno.usuario._id.toString() !== usuarioId.toString()) {
     throw new AppError("No tenés permiso para pagar este turno", 403);
   }
   if (!["pendiente", "pago_rechazado"].includes(turno.estado)) {
