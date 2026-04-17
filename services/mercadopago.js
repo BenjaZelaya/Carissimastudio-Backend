@@ -44,9 +44,6 @@ const crearPreferencia = async (turnoId, usuarioId) => {
   const bodyData = {
     items,
     external_reference: turnoId.toString(),
-    payer: {
-      email: turno.usuario?.email || "",
-    },
     back_urls: {
       success: `${process.env.FRONTEND_URL}/pago/resultado?estado=aprobado`,
       failure: `${process.env.FRONTEND_URL}/pago/resultado?estado=rechazado`,
@@ -58,13 +55,18 @@ const crearPreferencia = async (turnoId, usuarioId) => {
     bodyData.notification_url = `${process.env.BACKEND_URL}/api/pagos/webhook`;
   }
 
-  const resultado = await preference.create({ body: bodyData });
-
-  return {
-    preferenceId: resultado.id,
-    initPoint: resultado.init_point,
-    sandboxInitPoint: resultado.sandbox_init_point,
-  };
+  try {
+    const resultado = await preference.create({ body: bodyData });
+    console.log("Preferencia creada:", { id: resultado.id, initPoint: resultado.init_point });
+    return {
+      preferenceId: resultado.id,
+      initPoint: resultado.init_point,
+      sandboxInitPoint: resultado.sandbox_init_point,
+    };
+  } catch (error) {
+    console.error("Error creando preferencia:", error.message, error.response?.data || error);
+    throw error;
+  }
 };
 
 const procesarWebhook = async (data) => {
