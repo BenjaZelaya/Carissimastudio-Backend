@@ -15,6 +15,7 @@ import {
   agregarProducto,
   quitarProducto,
   patchOrden,
+  deleteCategoriaDefinitiva,
 } from "../controllers/Categoria.js";
 
 const router = Router();
@@ -82,6 +83,18 @@ router.put(
     validarCampos,
   ],
   putCategoria
+);
+
+// DELETE /api/categorias/:id/definitivo  → elimina permanentemente (admin)
+router.delete(
+  "/:id/definitivo",
+  [
+    validarJWT,
+    esAdminRole,
+    param("id").isMongoId().withMessage("ID no válido"),
+    validarCampos,
+  ],
+  deleteCategoriaDefinitiva
 );
 
 // DELETE /api/categorias/:id  → baja lógica (admin)
