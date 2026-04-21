@@ -16,7 +16,7 @@ const crearPreferencia = async (turnoId, usuarioId) => {
   if (turno.usuario._id.toString() !== usuarioId.toString()) {
     throw new AppError("No tenés permiso para pagar este turno", 403);
   }
-  if (!["pendiente", "pago_rechazado"].includes(turno.estado)) {
+  if (![\"borrador\", \"pago_rechazado\"].includes(turno.estado)) {
     throw new AppError("Este turno no puede ser pagado en su estado actual", 400);
   }
 
@@ -97,7 +97,7 @@ const procesarWebhook = async (data) => {
   } else if (estado === "rejected") {
     await Turno.findByIdAndUpdate(turnoId, {
       estado: "pago_rechazado",
-    });
+    }, { new: true });
     console.log("Turno rechazado:", turnoId);
   }
 };

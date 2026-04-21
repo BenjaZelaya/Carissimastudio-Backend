@@ -124,7 +124,7 @@ const subirComprobante = async (id, urlComprobante, usuarioId) => {
   if (turno.usuario.toString() !== usuarioId.toString()) {
     throw new AppError("No tenés permiso para modificar este turno", 403);
   }
-  if (!["pendiente", "pago_rechazado"].includes(turno.estado)) {
+  if (![\"borrador\", \"pago_rechazado\"].includes(turno.estado)) {
     throw new AppError("Este turno no puede ser cargado en su estado actual", 400);
   }
 

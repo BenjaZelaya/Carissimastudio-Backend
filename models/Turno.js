@@ -45,6 +45,7 @@ const TurnoSchema = new mongoose.Schema(
     estado: {
       type: String,
       enum: [
+        "borrador",
         "pendiente",
         "señado",
         "confirmado",
@@ -52,7 +53,7 @@ const TurnoSchema = new mongoose.Schema(
         "cancelado",
         "completado",
       ],
-      default: "pendiente",
+      default: "borrador",
     },
     comprobante: {
       type: String, // URL del comprobante subido a Cloudinary
