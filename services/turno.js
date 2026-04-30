@@ -137,13 +137,11 @@ const subirComprobante = async (id, urlComprobante, usuarioId) => {
   ).populate("usuario", "nombre apellido email telefono")
    .populate("productos", "nombreProducto precio img");
 
-  // ─── Responder inmediatamente, emails en background ──────────────────────
-  setImmediate(() => {
-    enviarEmailConfirmacionReserva(turnoActualizado.usuario, turnoActualizado)
-      .catch((e) => logger.error(`Error email usuario:`, e.message));
-    enviarEmailNotificacionAdmin(turnoActualizado.usuario, turnoActualizado)
-      .catch((e) => logger.error(`Error email admin:`, e.message));
-  });
+  // ─── Iniciar emails antes de retornar (conexiones SMTP abiertas inmediatamente)
+  const emailUsuario = enviarEmailConfirmacionReserva(turnoActualizado.usuario, turnoActualizado);
+  const emailAdmin = enviarEmailNotificacionAdmin(turnoActualizado.usuario, turnoActualizado);
+  emailUsuario.catch((e) => logger.error(`Error email usuario:`, e.message));
+  emailAdmin.catch((e) => logger.error(`Error email admin:`, e.message));
 
   logger.info(`✓ Turno ${id} actualizado con estado "señado"`);
 
