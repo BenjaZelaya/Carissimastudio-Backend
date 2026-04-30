@@ -5,11 +5,23 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.EMAIL_FROM || "Carissima Studio <onboarding@resend.dev>";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 
-// Helper interno
+// Sin dominio verificado en Resend, solo se puede enviar al email de la cuenta (julicarissima@gmail.com).
+// Todos los emails van al admin; se indica el destinatario real en el asunto y en el cuerpo.
 const send = async ({ to, subject, html }) => {
-  const { data, error } = await resend.emails.send({ from: FROM, to, subject, html });
-  if (error) throw new Error(error.message);
-  logger.info(`✅ Email enviado a ${to}: ${data.id}`);
+  const esAdmin = to === ADMIN_EMAIL;
+  const destino = ADMIN_EMAIL;
+  const asunto = esAdmin ? subject : `[Para cliente: ${to}] ${subject}`;
+  const cuerpoFinal = esAdmin
+    ? html
+    : html.replace(
+        "</body>",
+        `<table width='100%'><tr><td style='background:#fffbeb;border-top:2px solid #f59e0b;padding:12px;text-align:center;font-family:Arial,sans-serif;font-size:12px;color:#92400e;'>
+        ⚠️ Este email es para <strong>${to}</strong> — reenvialo o contactalo manualmente hasta tener dominio verificado.
+        </td></tr></table></body>`
+      );
+  const { data, error } = await resend.emails.send({ from: FROM, to: destino, subject: asunto, html: cuerpoFinal });
+  if (error) throw new Error(JSON.stringify(error));
+  logger.info(`✅ Email enviado (destino real: ${to}): ${data.id}`);
 };
 
 // Templates
