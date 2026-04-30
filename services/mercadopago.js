@@ -102,4 +102,53 @@ const procesarWebhook = async (data) => {
   }
 };
 
-export { crearPreferencia, procesarWebhook };
+// ── PACK: crear preferencia de MP ───────────────────────────────────────────
+const crearPreferenciaPack = async (compraId, usuarioId) => {
+  const PackCompra = (await import("../models/PackCompra.js")).default;
+
+  const compra = await PackCompra.findById(compraId)
+    .populate("pack", "nombre")
+    .populate("usuario", "email");
+
+  if (!compra) throw new AppError("Compra no encontrada", 404);
+  if (compra.usuario._id.toString() !== usuarioId.toString()) {
+    throw new AppError("No tenés permiso para pagar esta compra", 403);
+  }
+  if (compra.estado !== "pendiente") {
+    throw new AppError("Esta compra no puede ser pagada en su estado actual", 400);
+  }
+
+  const unitPrice = parseFloat(compra.montoAbonado) || 0;
+  if (unitPrice <= 0) throw new AppError("Monto de pago inválido", 400);
+
+  const preference = new Preference(client);
+
+  const bodyData = {
+    items: [{
+      id: compra._id.toString(),
+      title: `Carissima Studio - Pack ${compra.pack?.nombre || ""}`,
+      quantity: 1,
+      unit_price: Math.round(unitPrice * 100) / 100,
+      currency_id: "ARS",
+    }],
+    external_reference: `pack:${compraId.toString()}`,
+    back_urls: {
+      success: `${process.env.FRONTEND_URL}/pago/resultado?estado=aprobado`,
+      failure: `${process.env.FRONTEND_URL}/pago/resultado?estado=rechazado`,
+      pending: `${process.env.FRONTEND_URL}/pago/resultado?estado=pendiente`,
+    },
+  };
+
+  if (process.env.BACKEND_URL) {
+    bodyData.notification_url = `${process.env.BACKEND_URL}/api/pagos/webhook`;
+  }
+
+  const resultado = await preference.create({ body: bodyData });
+  return {
+    preferenceId: resultado.id,
+    initPoint: resultado.init_point,
+    sandboxInitPoint: resultado.sandbox_init_point,
+  };
+};
+
+export { crearPreferencia, crearPreferenciaPack, procesarWebhook };
