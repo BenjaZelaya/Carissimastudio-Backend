@@ -137,25 +137,15 @@ const subirComprobante = async (id, urlComprobante, usuarioId) => {
   ).populate("usuario", "nombre apellido email telefono")
    .populate("productos", "nombreProducto precio img");
 
-  // ─── Enviar emails al usuario y al administrador ───────────────────────────
+  // ─── Enviar emails en background (fire & forget) ─────────────────────────
+  // No bloqueamos la respuesta HTTP esperando los emails
+  enviarEmailConfirmacionReserva(turnoActualizado.usuario, turnoActualizado)
+    .catch((e) => logger.error(`Error enviando email al usuario:`, e.message));
 
-  // Email al usuario
-  try {
-    await enviarEmailConfirmacionReserva(turnoActualizado.usuario, turnoActualizado);
-  } catch (emailError) {
-    logger.error(`Error enviando email al usuario:`, emailError.message);
-    // No interrumpimos el flujo, continuamos enviando el email del admin
-  }
+  enviarEmailNotificacionAdmin(turnoActualizado.usuario, turnoActualizado)
+    .catch((e) => logger.error(`Error enviando email al admin:`, e.message));
 
-  // Email al administrador
-  try {
-    await enviarEmailNotificacionAdmin(turnoActualizado.usuario, turnoActualizado);
-  } catch (emailError) {
-    logger.error(`Error enviando email al admin:`, emailError.message);
-    // No interrumpimos el flujo
-  }
-
-  logger.info(`✓ Turno ${id} actualizado con estado "señado" y emails procesados`);
+  logger.info(`✓ Turno ${id} actualizado con estado "señado"`);
 
   return turnoActualizado;
 };
