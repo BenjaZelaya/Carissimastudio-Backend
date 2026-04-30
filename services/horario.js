@@ -34,14 +34,14 @@ const obtenerConfig = async () => {
 };
 
 const actualizarConfig = async (datos) => {
-  const { diasLaborales, horaInicio, horaFin, duracionTurno } = datos;
+  const { diasLaborales, horaInicio, horaFin, duracionTurno, capacidadPorTurno } = datos;
   let config = await ConfigHorario.findOne({ activo: true });
   if (!config) {
-    return await ConfigHorario.create({ diasLaborales, horaInicio, horaFin, duracionTurno });
+    return await ConfigHorario.create({ diasLaborales, horaInicio, horaFin, duracionTurno, capacidadPorTurno });
   }
   return await ConfigHorario.findByIdAndUpdate(
     config._id,
-    { diasLaborales, horaInicio, horaFin, duracionTurno },
+    { diasLaborales, horaInicio, horaFin, duracionTurno, capacidadPorTurno },
     { new: true, runValidators: true }
   );
 };
@@ -118,7 +118,13 @@ const obtenerDisponibilidadSemana = async (fechaInicio) => {
       estado: { $in: ["pendiente", "señado", "confirmado"] },
     }).select("horaInicio");
 
-    const horasOcupadas = turnosOcupados.map((t) => t.horaInicio);
+    const capacidad = config.capacidadPorTurno || 1;
+
+    // Contar cuántos turnos hay por hora
+    const conteoHoras = {};
+    turnosOcupados.forEach((t) => {
+      conteoHoras[t.horaInicio] = (conteoHoras[t.horaInicio] || 0) + 1;
+    });
 
     const inicio = horaAMinutos(config.horaInicio);
     const fin = horaAMinutos(config.horaFin);
@@ -142,7 +148,9 @@ const obtenerDisponibilidadSemana = async (fechaInicio) => {
       if (!estaBloqueado) {
         turnos.push({
           hora: horaSlot,
-          ocupado: horasOcupadas.includes(horaSlot),
+          ocupado: (conteoHoras[horaSlot] || 0) >= capacidad,
+          reservas: conteoHoras[horaSlot] || 0,
+          capacidad,
         });
       }
     }

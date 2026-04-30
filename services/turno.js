@@ -18,24 +18,26 @@ const horaAMinutos = (hora) => {
 const crearTurno = async (datos, usuarioId) => {
   const { productos, fecha, horaInicio, metodoPago, total } = datos;
 
-  // Validar que el slot no esté ocupado por otro turno activo
+  // Validar que el slot no esté lleno según la capacidad configurada
   const fechaStr = fecha.split("T")[0];
   const inicioDelDia = new Date(fechaStr + "T00:00:00.000Z");
   const finDelDia = new Date(fechaStr + "T23:59:59.999Z");
 
-  const turnoExistente = await Turno.findOne({
+  // Validar que el día sea laborable según la configuración activa
+  let config = await ConfigHorario.findOne({ activo: true });
+  if (!config) config = await ConfigHorario.create({});
+
+  const capacidad = config.capacidadPorTurno || 1;
+
+  const turnosEnSlot = await Turno.countDocuments({
     fecha: { $gte: inicioDelDia, $lt: finDelDia },
     horaInicio,
     estado: { $in: ["pendiente", "señado", "confirmado"] },
   });
 
-  if (turnoExistente) {
+  if (turnosEnSlot >= capacidad) {
     throw new AppError("Ese horario ya está reservado", 409);
   }
-
-  // Validar que el día sea laborable según la configuración activa
-  let config = await ConfigHorario.findOne({ activo: true });
-  if (!config) config = await ConfigHorario.create({});
 
   const diaSemana = new Date(fecha + "T12:00:00").getDay();
   const diaNum = diaSemana + 1;

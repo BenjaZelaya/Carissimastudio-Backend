@@ -25,6 +25,12 @@ const ConfigHorarioSchema = new mongoose.Schema(
       default: 60, // minutos
       min: [15, "La duración mínima es 15 minutos"],
     },
+    capacidadPorTurno: {
+      type: Number,
+      default: 1,
+      min: [1, "La capacidad mínima es 1 persona"],
+      max: [20, "La capacidad máxima es 20 personas"],
+    },
     activo: {
       type: Boolean,
       default: true,
