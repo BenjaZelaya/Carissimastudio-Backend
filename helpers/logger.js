@@ -15,7 +15,7 @@ const esProduccion = process.env.NODE_ENV === "production";
  *   info → warn → error
  */
 const logger = winston.createLogger({
-  level: esProduccion ? "warn" : "info",
+  level: "info",
   format: winston.format.combine(
     winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
     winston.format.errors({ stack: true }),

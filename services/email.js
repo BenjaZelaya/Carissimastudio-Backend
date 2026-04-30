@@ -13,11 +13,11 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-transporter.verify(function (error, success) {
+transporter.verify(function (error) {
   if (error) {
-    logger.error("Error email:", error);
+    logger.error("❌ SMTP verify FAILED: " + error.message);
   } else {
-    logger.info("OK Email listo");
+    logger.info("✅ SMTP listo: " + process.env.EMAIL_USER);
   }
 });
 
@@ -70,13 +70,9 @@ const enviarEmailConfirmacionReserva = async (usuario, turno) => {
     html: htmlContent,
   };
 
-  try {
-    logger.info("EMAIL CONFIRMACION RESERVA: " + email);
-    const info = await transporter.sendMail(mailOptions);
-    logger.info("OK EMAIL ENVIADO: " + info.messageId);
-  } catch (error) {
-    logger.error("ERROR EMAIL: " + error.message);
-  }
+  logger.info("📧 Enviando email reserva → " + email);
+  const info = await transporter.sendMail(mailOptions);
+  logger.info("✅ Email reserva enviado: " + info.messageId);
 };
 
 const enviarEmailNotificacionAdmin = async (usuario, turno) => {
@@ -132,13 +128,9 @@ const enviarEmailNotificacionAdmin = async (usuario, turno) => {
     html: htmlContent,
   };
 
-  try {
-    logger.info("EMAIL NOTIFICACION ADMIN: " + adminEmail);
-    const info = await transporter.sendMail(mailOptions);
-    logger.info("OK EMAIL ENVIADO: " + info.messageId);
-  } catch (error) {
-    logger.error("ERROR EMAIL: " + error.message);
-  }
+  logger.info("📧 Enviando email admin → " + adminEmail);
+  const info = await transporter.sendMail(mailOptions);
+  logger.info("✅ Email admin enviado: " + info.messageId);
 };
 
 const enviarEmailConfirmacionTurno = async (usuario, turno) => {
