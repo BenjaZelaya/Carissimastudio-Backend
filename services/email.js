@@ -5,11 +5,14 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.EMAIL_FROM || "Carissima Studio <onboarding@resend.dev>";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 
-// Helper interno
+// Helper interno — sin dominio verificado, Resend solo permite enviar al dueño de la cuenta.
+// Todos los emails van al admin; el destinatario original se indica en el asunto.
 const send = async ({ to, subject, html }) => {
-  const { data, error } = await resend.emails.send({ from: FROM, to, subject, html });
+  const destino = ADMIN_EMAIL;
+  const asunto = to !== ADMIN_EMAIL ? `[Para: ${to}] ${subject}` : subject;
+  const { data, error } = await resend.emails.send({ from: FROM, to: destino, subject: asunto, html });
   if (error) throw new Error(error.message);
-  logger.info(`✅ Email enviado a ${to}: ${data.id}`);
+  logger.info(`✅ Email enviado (→${destino}): ${data.id}`);
 };
 
 // Templates
