@@ -137,11 +137,13 @@ const subirComprobante = async (id, urlComprobante, usuarioId) => {
   ).populate("usuario", "nombre apellido email telefono")
    .populate("productos", "nombreProducto precio img");
 
-  // ─── Enviar emails en paralelo, sin bloquear por errores ─────────────────
-  await Promise.allSettled([
-    enviarEmailConfirmacionReserva(turnoActualizado.usuario, turnoActualizado),
-    enviarEmailNotificacionAdmin(turnoActualizado.usuario, turnoActualizado),
-  ]);
+  // ─── Responder inmediatamente, emails en background ──────────────────────
+  setImmediate(() => {
+    enviarEmailConfirmacionReserva(turnoActualizado.usuario, turnoActualizado)
+      .catch((e) => logger.error(`Error email usuario:`, e.message));
+    enviarEmailNotificacionAdmin(turnoActualizado.usuario, turnoActualizado)
+      .catch((e) => logger.error(`Error email admin:`, e.message));
+  });
 
   logger.info(`✓ Turno ${id} actualizado con estado "señado"`);
 
