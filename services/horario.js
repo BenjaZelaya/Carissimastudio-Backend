@@ -2,6 +2,7 @@
 import ConfigHorario from "../models/ConfigHorario.js";
 import Bloqueo from "../models/Bloqueo.js";
 import Turno from "../models/Turno.js";
+import Sesion from "../models/Sesion.js";
 import { AppError } from "../helpers/AppError.js";
 
 // ─── Helpers internos ────────────────────────────────────────────────────────
@@ -118,12 +119,22 @@ const obtenerDisponibilidadSemana = async (fechaInicio) => {
       estado: { $in: ["pendiente", "señado", "confirmado"] },
     }).select("horaInicio");
 
+    // Sesiones de packs agendadas para ese día
+    const fechaStr = fecha.toISOString().split("T")[0];
+    const sesionesOcupadas = await Sesion.find({
+      fecha: fechaStr,
+      estado: { $in: ["pendiente", "confirmada"] },
+    }).select("horaInicio");
+
     const capacidad = config.capacidadPorTurno || 1;
 
-    // Contar cuántos turnos hay por hora
+    // Contar cuántos turnos hay por hora (turnos normales + sesiones de packs)
     const conteoHoras = {};
     turnosOcupados.forEach((t) => {
       conteoHoras[t.horaInicio] = (conteoHoras[t.horaInicio] || 0) + 1;
+    });
+    sesionesOcupadas.forEach((s) => {
+      conteoHoras[s.horaInicio] = (conteoHoras[s.horaInicio] || 0) + 1;
     });
 
     const inicio = horaAMinutos(config.horaInicio);
