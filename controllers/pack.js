@@ -50,6 +50,15 @@ export const deletePack = async (req, res) => {
   }
 };
 
+export const deletePackCompra = async (req, res) => {
+  try {
+    await PackService.eliminarPackCompra(req.params.id);
+    res.json({ msg: "Compra eliminada" });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 // ── COMPRAS ───────────────────────────────────────────────────────────────────
 
 export const postPackCompra = async (req, res) => {

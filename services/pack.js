@@ -50,6 +50,14 @@ export const eliminarPack = async (id) => {
   return pack;
 };
 
+export const eliminarPackCompra = async (id) => {
+  const compra = await PackCompra.findById(id);
+  if (!compra) throw new AppError("Compra no encontrada", 404);
+  // Eliminar las sesiones asociadas
+  await Sesion.deleteMany({ packCompra: id });
+  await PackCompra.findByIdAndDelete(id);
+};
+
 // ──────────────────────────────────────────────
 // PACK COMPRA
 // ──────────────────────────────────────────────

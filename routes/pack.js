@@ -22,6 +22,7 @@ import {
   patchConfirmarSesion,
   patchCompletarSesion,
   patchCancelarSesion,
+  deletePackCompra,
 } from "../controllers/pack.js";
 
 import { crearPreferenciaPack } from "../services/mercadopago.js";
@@ -200,6 +201,13 @@ router.patch(
     validarCampos,
   ],
   patchCancelarSesion
+);
+
+// DELETE /api/packs/compras/:id (admin – elimina compra y sus sesiones)
+router.delete(
+  "/compras/:id",
+  [validarJWT, esAdminRole, param("id").isMongoId(), validarCampos],
+  deletePackCompra
 );
 
 export default router;
