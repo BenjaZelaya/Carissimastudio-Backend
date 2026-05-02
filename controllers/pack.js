@@ -43,8 +43,8 @@ export const putPack = async (req, res) => {
 
 export const deletePack = async (req, res) => {
   try {
-    const pack = await PackService.desactivarPack(req.params.id);
-    res.json({ msg: "Pack desactivado", pack });
+    await PackService.eliminarPack(req.params.id);
+    res.json({ msg: "Pack eliminado" });
   } catch (error) {
     handleError(res, error);
   }

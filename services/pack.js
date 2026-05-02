@@ -44,6 +44,12 @@ export const desactivarPack = async (id) => {
   return pack;
 };
 
+export const eliminarPack = async (id) => {
+  const pack = await Pack.findByIdAndDelete(id);
+  if (!pack) throw new AppError("Pack no encontrado", 404);
+  return pack;
+};
+
 // ──────────────────────────────────────────────
 // PACK COMPRA
 // ──────────────────────────────────────────────
