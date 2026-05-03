@@ -83,11 +83,27 @@ const procesarWebhook = async (data) => {
   const payment = await paymentClient.get({ id: data.data.id });
   console.log("Payment obtenido:", { id: payment.id, status: payment.status, external_reference: payment.external_reference });
 
-  const turnoId = payment.external_reference;
+  const externalRef = payment.external_reference;
   const estado = payment.status;
 
+  // Pago de pack
+  if (externalRef && externalRef.startsWith("pack:")) {
+    const compraId = externalRef.replace("pack:", "");
+    const PackCompra = (await import("../models/PackCompra.js")).default;
+    if (estado === "approved") {
+      await PackCompra.findByIdAndUpdate(compraId, { estado: "señado", comprobantePago: payment.id.toString() }, { new: true });
+      console.log("PackCompra señada:", compraId);
+    } else if (estado === "rejected") {
+      await PackCompra.findByIdAndUpdate(compraId, { estado: "cancelado" }, { new: true });
+      console.log("PackCompra cancelada:", compraId);
+    }
+    return;
+  }
+
+  // Pago de turno normal
+  const turnoId = externalRef;
   if (estado === "approved") {
-    const resultado = await Turno.findByIdAndUpdate(turnoId, {
+    await Turno.findByIdAndUpdate(turnoId, {
       estado: "confirmado",
       metodoPago: "mercadopago",
       comprobante: payment.id.toString(),
@@ -133,9 +149,9 @@ const crearPreferenciaPack = async (compraId, usuarioId) => {
     }],
     external_reference: `pack:${compraId.toString()}`,
     back_urls: {
-      success: `${process.env.FRONTEND_URL}/pago/resultado?estado=aprobado`,
-      failure: `${process.env.FRONTEND_URL}/pago/resultado?estado=rechazado`,
-      pending: `${process.env.FRONTEND_URL}/pago/resultado?estado=pendiente`,
+      success: `${process.env.FRONTEND_URL}/pago-pack/resultado?estado=aprobado&compraId=${compraId}`,
+      failure: `${process.env.FRONTEND_URL}/pago-pack/resultado?estado=rechazado&compraId=${compraId}`,
+      pending: `${process.env.FRONTEND_URL}/pago-pack/resultado?estado=pendiente&compraId=${compraId}`,
     },
   };
 
