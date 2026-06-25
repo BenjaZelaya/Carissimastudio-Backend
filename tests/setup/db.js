@@ -1,19 +1,22 @@
 // tests/setup/db.js
 // Gestiona el ciclo de vida de mongodb-memory-server para los tests.
-import { MongoMemoryServer } from "mongodb-memory-server";
+// Se usa un replica set de un solo nodo (en vez de un servidor standalone)
+// porque services/turno.js usa transacciones de Mongoose, que requieren
+// soporte de replica set incluso para una sola instancia.
+import { MongoMemoryReplSet } from "mongodb-memory-server";
 import mongoose from "mongoose";
 
 let mongod;
 
 /**
- * Inicia un servidor MongoDB en memoria y conecta mongoose.
+ * Inicia un replica set de MongoDB en memoria y conecta mongoose.
  * Si ya existe una conexion activa, la cierra primero.
  */
 export const connect = async () => {
   if (mongoose.connection.readyState !== 0) {
     await mongoose.disconnect();
   }
-  mongod = await MongoMemoryServer.create();
+  mongod = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(mongod.getUri());
 };
 

@@ -5,7 +5,8 @@ import { check, param } from "express-validator";
 import { validarCampos } from "../helpers/validar-campos.js";
 import { validarJWT } from "../middlewares/validar-jwt.js";
 import { esAdminRole } from "../middlewares/validarRoles.js";
-import { upload, subirACloudinary } from "../middlewares/upload.js";
+import { upload, subirACloudinary, manejarErrorUpload } from "../middlewares/upload.js";
+import logger from "../helpers/logger.js";
 
 import {
   postTurno,
@@ -22,7 +23,6 @@ import {
   deleteTurno,
   getInfoCambiosDisponibles,
 } from "../controllers/turno.js";
-import { enviarEmailCancelacionTurnoAlUsuario, enviarEmailCancelacionTurnoAlAdmin } from "../services/email.js";
 
 const router = Router();
 
@@ -40,7 +40,9 @@ router.post(
       .matches(/^([01]\d|2[0-3]):([0-5]\d)$/),
     check("metodoPago", "El método de pago debe ser transferencia o mercadopago")
       .isIn(["transferencia", "mercadopago"]),
-    check("total", "El total es obligatorio").isFloat({ min: 0 }),
+    // El total se recalcula server-side a partir del precio real de los
+    // productos (ver services/turno.js); no se valida ni se confía en el
+    // valor que pueda enviar el cliente.
     validarCampos,
   ],
   postTurno
@@ -70,6 +72,7 @@ router.post(
     param("id").isMongoId().withMessage("ID no válido"),
     validarCampos,
     upload.single("img"),
+    manejarErrorUpload,
   ],
   async (req, res) => {
     try {
@@ -88,7 +91,7 @@ router.post(
 
       res.json(turno);
     } catch (error) {
-      console.error("Error subir comprobante:", error);
+      logger.error("Error subir comprobante", { message: error.message });
       if (error.statusCode) {
         return res.status(error.statusCode).json({ msg: error.message });
       }
@@ -204,50 +207,6 @@ router.get(
     validarCampos,
   ],
   getTurnoById
-);
-
-// TEST ENDPOINT - Prueba de envío de emails de cancelación
-router.get(
-  "/test/email-cancelacion",
-  [validarJWT, esAdminRole],
-  async (req, res) => {
-    const usuarioTest = {
-      nombre: "Usuario Prueba",
-      apellido: "Test",
-      email: process.env.ADMIN_EMAIL,
-      telefono: "3813349985"
-    };
-    
-    const turnoTest = {
-      fecha: new Date(),
-      horaInicio: "14:00",
-      productos: [
-        { nombreProducto: "Servicio Test", precio: 1000 }
-      ]
-    };
-
-    try {
-      console.log("🧪 ENVIANDO EMAIL DE PRUEBA AL USUARIO...");
-      await enviarEmailCancelacionTurnoAlUsuario(usuarioTest, turnoTest);
-      
-      console.log("🧪 ENVIANDO EMAIL DE PRUEBA AL ADMIN...");
-      await enviarEmailCancelacionTurnoAlAdmin(usuarioTest, turnoTest);
-      
-      res.json({ 
-        msg: "✅ Emails de prueba enviados correctamente",
-        emails_enviados: {
-          usuario: usuarioTest.email,
-          admin: process.env.ADMIN_EMAIL
-        }
-      });
-    } catch (error) {
-      console.error("❌ Error en prueba de email:", error);
-      res.status(500).json({ 
-        msg: "❌ Error al enviar emails de prueba",
-        error: error.message 
-      });
-    }
-  }
 );
 
 export default router;

@@ -1,11 +1,47 @@
 // services/mercadopago.js
+import crypto from "crypto";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 import Turno from "../models/Turno.js";
 import { AppError } from "../helpers/AppError.js";
+import logger from "../helpers/logger.js";
 
 const client = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN,
 });
+
+// Verifica la firma HMAC-SHA256 que Mercado Pago envía en el header
+// x-signature, según https://www.mercadopago.com.ar/developers/es/docs/checkout-api/additional-content/your-integrations/notifications/webhooks#editor_2
+// Si MP_WEBHOOK_SECRET no está configurado, se omite la verificación (modo
+// compatible con instalaciones existentes) pero queda un warning en los logs.
+const verificarFirmaWebhook = (dataId, xSignature, xRequestId) => {
+  const secret = process.env.MP_WEBHOOK_SECRET;
+  if (!secret) {
+    logger.warn(
+      "MP_WEBHOOK_SECRET no configurado: el webhook de Mercado Pago se procesa sin verificar firma"
+    );
+    return true;
+  }
+
+  if (!xSignature || !xRequestId || !dataId) return false;
+
+  const partes = Object.fromEntries(
+    xSignature.split(",").map((parte) => parte.trim().split("="))
+  );
+  const { ts, v1: firmaRecibida } = partes;
+  if (!ts || !firmaRecibida) return false;
+
+  const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+  const firmaCalculada = crypto
+    .createHmac("sha256", secret)
+    .update(manifest)
+    .digest("hex");
+
+  const bufCalculada = Buffer.from(firmaCalculada);
+  const bufRecibida = Buffer.from(firmaRecibida);
+  if (bufCalculada.length !== bufRecibida.length) return false;
+
+  return crypto.timingSafeEqual(bufCalculada, bufRecibida);
+};
 
 const crearPreferencia = async (turnoId, usuarioId) => {
   const turno = await Turno.findById(turnoId)
@@ -57,23 +93,23 @@ const crearPreferencia = async (turnoId, usuarioId) => {
 
   try {
     const resultado = await preference.create({ body: bodyData });
-    console.log("Preferencia creada:", { id: resultado.id, initPoint: resultado.init_point });
+    logger.info("Preferencia creada", { id: resultado.id, initPoint: resultado.init_point });
     return {
       preferenceId: resultado.id,
       initPoint: resultado.init_point,
       sandboxInitPoint: resultado.sandbox_init_point,
     };
   } catch (error) {
-    console.error("Error creando preferencia:", error.message, error.response?.data || error);
+    logger.error("Error creando preferencia", { message: error.message, data: error.response?.data });
     throw error;
   }
 };
 
 const procesarWebhook = async (data) => {
-  console.log("Webhook recibido:", { type: data.type, paymentId: data.data?.id });
-  
+  logger.info("Webhook recibido", { type: data.type, paymentId: data.data?.id });
+
   if (data.type !== "payment") {
-    console.log("No es payment, ignorando");
+    logger.info("Webhook ignorado: no es de tipo payment");
     return;
   }
 
@@ -81,7 +117,7 @@ const procesarWebhook = async (data) => {
   const paymentClient = new Payment(new MPConfig({ accessToken: process.env.MP_ACCESS_TOKEN }));
 
   const payment = await paymentClient.get({ id: data.data.id });
-  console.log("Payment obtenido:", { id: payment.id, status: payment.status, external_reference: payment.external_reference });
+  logger.info("Payment obtenido", { id: payment.id, status: payment.status, external_reference: payment.external_reference });
 
   const externalRef = payment.external_reference;
   const estado = payment.status;
@@ -92,10 +128,10 @@ const procesarWebhook = async (data) => {
     const PackCompra = (await import("../models/PackCompra.js")).default;
     if (estado === "approved") {
       await PackCompra.findByIdAndUpdate(compraId, { estado: "señado", comprobantePago: payment.id.toString() }, { new: true });
-      console.log("PackCompra señada:", compraId);
+      logger.info("PackCompra señada", { compraId });
     } else if (estado === "rejected") {
       await PackCompra.findByIdAndUpdate(compraId, { estado: "cancelado" }, { new: true });
-      console.log("PackCompra cancelada:", compraId);
+      logger.info("PackCompra cancelada", { compraId });
     }
     return;
   }
@@ -109,12 +145,12 @@ const procesarWebhook = async (data) => {
       comprobante: payment.id.toString(),
       fechaConfirmacion: new Date(),
     }, { new: true });
-    console.log("Turno actualizado a confirmado:", turnoId);
+    logger.info("Turno actualizado a confirmado", { turnoId });
   } else if (estado === "rejected") {
     await Turno.findByIdAndUpdate(turnoId, {
       estado: "pago_rechazado",
     }, { new: true });
-    console.log("Turno rechazado:", turnoId);
+    logger.info("Turno rechazado", { turnoId });
   }
 };
 
@@ -167,4 +203,4 @@ const crearPreferenciaPack = async (compraId, usuarioId) => {
   };
 };
 
-export { crearPreferencia, crearPreferenciaPack, procesarWebhook };
+export { crearPreferencia, crearPreferenciaPack, procesarWebhook, verificarFirmaWebhook };

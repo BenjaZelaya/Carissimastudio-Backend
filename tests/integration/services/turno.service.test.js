@@ -72,10 +72,16 @@ const crearTurnoDirecto = async (usuarioId, overrides = {}) => {
 // ─── crearTurno ──────────────────────────────────────────────────────────────
 
 describe("crearTurno", () => {
-  let usuario;
+  let usuario, producto;
 
   beforeEach(async () => {
     usuario = await crearUsuario();
+    producto = await Producto.create({
+      nombreProducto: "Masaje descontracturante",
+      precio: 2000,
+      img: "https://res.cloudinary.com/demo/image/upload/test.jpg",
+      estado: true,
+    });
     await ConfigHorario.create({
       diasLaborales: [1, 2, 3, 4, 5],
       horaInicio: "09:00",
@@ -84,16 +90,48 @@ describe("crearTurno", () => {
     });
   });
 
-  it("crea el turno en estado pendiente con seña del 50%", async () => {
+  it("crea el turno en estado pendiente con seña del 50% calculada del precio real del producto", async () => {
     const fecha = proximoLunes();
     const turno = await crearTurno(
-      { productos: [], fecha, horaInicio: "10:00", metodoPago: "transferencia", total: 2000 },
+      { productos: [producto._id], fecha, horaInicio: "10:00", metodoPago: "transferencia", total: 1 },
       usuario._id
     );
     expect(turno._id).toBeDefined();
     expect(turno.estado).toBe("pendiente");
+    expect(turno.total).toBe(2000);
     expect(turno.seña).toBe(1000);
     expect(turno.usuario.toString()).toBe(usuario._id.toString());
+  });
+
+  it("ignora el total enviado por el cliente y usa el precio real del producto", async () => {
+    const fecha = proximoLunes();
+    const turno = await crearTurno(
+      { productos: [producto._id], fecha, horaInicio: "10:00", metodoPago: "transferencia", total: 1 },
+      usuario._id
+    );
+    expect(turno.total).toBe(2000);
+    expect(turno.seña).toBe(1000);
+  });
+
+  it("lanza AppError 400 si la lista de productos esta vacia", async () => {
+    const fecha = proximoLunes();
+    await expect(
+      crearTurno(
+        { productos: [], fecha, horaInicio: "10:00", metodoPago: "transferencia" },
+        usuario._id
+      )
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it("lanza AppError 400 si algun producto no existe o esta inactivo", async () => {
+    const fecha = proximoLunes();
+    const idInexistente = "64a1b2c3d4e5f6a7b8c9d0e1";
+    await expect(
+      crearTurno(
+        { productos: [idInexistente], fecha, horaInicio: "10:00", metodoPago: "transferencia" },
+        usuario._id
+      )
+    ).rejects.toMatchObject({ statusCode: 400 });
   });
 
   it("lanza AppError 400 si la fecha tiene menos de 24hs de antelacion", async () => {
@@ -101,7 +139,7 @@ describe("crearTurno", () => {
     const fechaCercana = ahora.toISOString().split("T")[0];
     await expect(
       crearTurno(
-        { productos: [], fecha: fechaCercana, horaInicio: "10:00", metodoPago: "transferencia", total: 1000 },
+        { productos: [producto._id], fecha: fechaCercana, horaInicio: "10:00", metodoPago: "transferencia" },
         usuario._id
       )
     ).rejects.toMatchObject({ statusCode: 400 });
@@ -110,16 +148,45 @@ describe("crearTurno", () => {
   it("lanza AppError 409 si el slot ya esta reservado", async () => {
     const fecha = proximoLunes();
     await crearTurno(
-      { productos: [], fecha, horaInicio: "10:00", metodoPago: "transferencia", total: 1000 },
+      { productos: [producto._id], fecha, horaInicio: "10:00", metodoPago: "transferencia" },
       usuario._id
     );
     const usuario2 = await crearUsuario();
     await expect(
       crearTurno(
-        { productos: [], fecha, horaInicio: "10:00", metodoPago: "transferencia", total: 1000 },
+        { productos: [producto._id], fecha, horaInicio: "10:00", metodoPago: "transferencia" },
         usuario2._id
       )
     ).rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  it("evita overbooking cuando dos requests concurrentes reservan el mismo slot", async () => {
+    const fecha = proximoLunes();
+    const usuario2 = await crearUsuario();
+
+    const resultados = await Promise.allSettled([
+      crearTurno(
+        { productos: [producto._id], fecha, horaInicio: "10:00", metodoPago: "transferencia" },
+        usuario._id
+      ),
+      crearTurno(
+        { productos: [producto._id], fecha, horaInicio: "10:00", metodoPago: "transferencia" },
+        usuario2._id
+      ),
+    ]);
+
+    const exitosos = resultados.filter((r) => r.status === "fulfilled");
+    const rechazados = resultados.filter((r) => r.status === "rejected");
+
+    expect(exitosos).toHaveLength(1);
+    expect(rechazados).toHaveLength(1);
+    expect(rechazados[0].reason).toMatchObject({ statusCode: 409 });
+
+    const turnosEnSlot = await Turno.countDocuments({
+      horaInicio: "10:00",
+      estado: { $in: ["pendiente", "señado", "confirmado"] },
+    });
+    expect(turnosEnSlot).toBe(1);
   });
 
   it("lanza AppError 400 si el dia no es laborable", async () => {
@@ -131,7 +198,7 @@ describe("crearTurno", () => {
     const domingo = `${y}-${m}-${day}T12:00:00`;
     await expect(
       crearTurno(
-        { productos: [], fecha: domingo, horaInicio: "10:00", metodoPago: "transferencia", total: 1000 },
+        { productos: [producto._id], fecha: domingo, horaInicio: "10:00", metodoPago: "transferencia" },
         usuario._id
       )
     ).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining("laborable") });
@@ -142,7 +209,7 @@ describe("crearTurno", () => {
     await Bloqueo.create({ tipo: "dia", fecha: new Date(fecha) });
     await expect(
       crearTurno(
-        { productos: [], fecha, horaInicio: "10:00", metodoPago: "transferencia", total: 1000 },
+        { productos: [producto._id], fecha, horaInicio: "10:00", metodoPago: "transferencia" },
         usuario._id
       )
     ).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining("bloqueado") });
@@ -158,7 +225,7 @@ describe("crearTurno", () => {
     });
     await expect(
       crearTurno(
-        { productos: [], fecha, horaInicio: "10:00", metodoPago: "transferencia", total: 1000 },
+        { productos: [producto._id], fecha, horaInicio: "10:00", metodoPago: "transferencia" },
         usuario._id
       )
     ).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining("bloqueado") });
@@ -168,7 +235,7 @@ describe("crearTurno", () => {
     await ConfigHorario.deleteMany({});
     const fecha = proximoLunes();
     const turno = await crearTurno(
-      { productos: [], fecha, horaInicio: "10:00", metodoPago: "transferencia", total: 500 },
+      { productos: [producto._id], fecha, horaInicio: "10:00", metodoPago: "transferencia" },
       usuario._id
     );
     expect(turno._id).toBeDefined();
@@ -459,12 +526,12 @@ describe("cambiarHorario", () => {
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  it("lanza AppError 400 si el ultimo cambio fue hace menos de 24hs", async () => {
-    const hace12hs = new Date(Date.now() - 12 * 60 * 60 * 1000);
+  it("lanza AppError 400 si pasaron mas de 24hs desde la confirmacion", async () => {
+    const hace30hs = new Date(Date.now() - 30 * 60 * 60 * 1000);
     const turno = await crearTurnoDirecto(usuario._id, {
-      estado: "pendiente",
-      cambiosHorario: 1,
-      ultimoCambioHorario: hace12hs,
+      estado: "confirmado",
+      cambiosHorario: 0,
+      fechaConfirmacion: hace30hs,
     });
     await expect(
       cambiarHorario(turno._id.toString(), { fecha: nuevoLunes(), horaInicio: "11:00" }, usuario._id)

@@ -5,7 +5,7 @@ import { check, param } from "express-validator";
 import { validarCampos } from "../helpers/validar-campos.js";
 import { validarJWT } from "../middlewares/validar-jwt.js";
 import { esAdminRole } from "../middlewares/validarRoles.js";
-import { upload, subirACloudinary } from "../middlewares/upload.js";
+import { upload, subirACloudinary, manejarErrorUpload } from "../middlewares/upload.js";
 
 import {
   getPacks,
@@ -108,7 +108,7 @@ router.post(
 // POST /api/packs/compras/:id/subir-comprobante (usuario)
 router.post(
   "/compras/:id/subir-comprobante",
-  [validarJWT, param("id").isMongoId(), validarCampos, upload.single("img")],
+  [validarJWT, param("id").isMongoId(), validarCampos, upload.single("img"), manejarErrorUpload],
   async (req, res) => {
     try {
       if (!req.file) {

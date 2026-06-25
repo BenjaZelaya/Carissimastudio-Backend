@@ -1,6 +1,7 @@
 // middlewares/validar-jwt.js
 import jwt from "jsonwebtoken";
 import Usuario from "../models/Usuario.js";
+import logger from "../helpers/logger.js";
 
 const validarJWT = async (req, res, next) => {
   // Soporta tanto "x-token" como "Authorization: Bearer ..."
@@ -33,7 +34,7 @@ const validarJWT = async (req, res, next) => {
     req.usuario = usuario;
     next();
   } catch (error) {
-    console.error("Error validarJWT:", error.message);
+    logger.error("Error validarJWT", { message: error.message });
     return res.status(401).json({ 
       msg: "Token no válido o expirado" 
     });

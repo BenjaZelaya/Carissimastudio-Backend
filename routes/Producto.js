@@ -2,9 +2,10 @@
 import { Router } from "express";
 import { check, param, query } from "express-validator";
 import { validarCampos } from "../helpers/validar-campos.js";
-import { upload, subirACloudinary } from "../middlewares/upload.js";
+import { upload, subirACloudinary, manejarErrorUpload } from "../middlewares/upload.js";
 import { validarJWT } from "../middlewares/validar-jwt.js";
 import { esAdminRole } from "../middlewares/validarRoles.js";
+import logger from "../helpers/logger.js";
 import {
   getProductos,
   getProductosAdmin,
@@ -71,7 +72,7 @@ router.post(
 // POST /api/productos/upload  → sube imagen a Cloudinary (admin)
 router.post(
   "/upload",
-  [validarJWT, esAdminRole, upload.single("img")],
+  [validarJWT, esAdminRole, upload.single("img"), manejarErrorUpload],
   async (req, res) => {
     try {
       if (!req.file) {
@@ -80,7 +81,7 @@ router.post(
       const resultado = await subirACloudinary(req.file.buffer);
       res.json({ url: resultado.secure_url });
     } catch (error) {
-      console.error("Error Cloudinary:", error);
+      logger.error("Error Cloudinary", { message: error.message });
       res.status(500).json({ msg: "Error al subir la imagen" });
     }
   }

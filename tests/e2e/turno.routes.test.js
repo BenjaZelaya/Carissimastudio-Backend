@@ -7,6 +7,7 @@ import { connect, closeDatabase, clearDatabase } from "../setup/db.js";
 import { createApp } from "../setup/createApp.js";
 import Usuario from "../../models/Usuario.js";
 import Turno from "../../models/Turno.js";
+import Producto from "../../models/Producto.js";
 import ConfigHorario from "../../models/ConfigHorario.js";
 
 const app = createApp();
@@ -58,11 +59,17 @@ const crearTurnoDirecto = async (usuarioId, overrides = {}) => {
 // ─── POST /api/turnos ─────────────────────────────────────────────────────────
 
 describe("POST /api/turnos", () => {
-  let usuario, token;
+  let usuario, token, producto;
 
   beforeEach(async () => {
     usuario = await crearUsuarioDB();
     token = generarToken(usuario);
+    producto = await Producto.create({
+      nombreProducto: "Masaje descontracturante",
+      precio: 2000,
+      img: "https://res.cloudinary.com/demo/image/upload/test.jpg",
+      estado: true,
+    });
     await ConfigHorario.create({
       diasLaborales: [1, 2, 3, 4, 5],
       horaInicio: "09:00",
@@ -71,17 +78,37 @@ describe("POST /api/turnos", () => {
     });
   });
 
-  it("crea un turno y retorna 201", async () => {
+  it("crea un turno y retorna 201 con el total calculado del precio real del producto", async () => {
     const fecha = proximoLunes();
-    // El route requiere al menos 1 producto (isArray({ min: 1 }))
-    const fakeProductoId = "64a1b2c3d4e5f6a7b8c9d0e1";
     const res = await request(app)
       .post("/api/turnos")
       .set("x-token", token)
-      .send({ productos: [fakeProductoId], fecha, horaInicio: "10:00", metodoPago: "transferencia", total: 1000 });
+      .send({ productos: [producto._id], fecha, horaInicio: "10:00", metodoPago: "transferencia" });
     expect(res.status).toBe(201);
     expect(res.body.estado).toBe("pendiente");
-    expect(res.body.seña).toBe(500);
+    expect(res.body.total).toBe(2000);
+    expect(res.body.seña).toBe(1000);
+  });
+
+  it("ignora el total enviado por el cliente y usa el precio real del producto", async () => {
+    const fecha = proximoLunes();
+    const res = await request(app)
+      .post("/api/turnos")
+      .set("x-token", token)
+      .send({ productos: [producto._id], fecha, horaInicio: "10:00", metodoPago: "transferencia", total: 1 });
+    expect(res.status).toBe(201);
+    expect(res.body.total).toBe(2000);
+    expect(res.body.seña).toBe(1000);
+  });
+
+  it("retorna 400 si el producto no existe", async () => {
+    const fecha = proximoLunes();
+    const idInexistente = "64a1b2c3d4e5f6a7b8c9d0e1";
+    const res = await request(app)
+      .post("/api/turnos")
+      .set("x-token", token)
+      .send({ productos: [idInexistente], fecha, horaInicio: "10:00", metodoPago: "transferencia" });
+    expect(res.status).toBe(400);
   });
 
   it("retorna 401 sin token", async () => {
@@ -93,7 +120,7 @@ describe("POST /api/turnos", () => {
     const res = await request(app)
       .post("/api/turnos")
       .set("x-token", token)
-      .send({ productos: [], fecha: "no-es-fecha", horaInicio: "10:00", metodoPago: "transferencia", total: 1000 });
+      .send({ productos: [producto._id], fecha: "no-es-fecha", horaInicio: "10:00", metodoPago: "transferencia" });
     expect(res.status).toBe(400);
   });
 
@@ -102,16 +129,16 @@ describe("POST /api/turnos", () => {
     const res = await request(app)
       .post("/api/turnos")
       .set("x-token", token)
-      .send({ productos: [], fecha, horaInicio: "10:00", metodoPago: "efectivo", total: 1000 });
+      .send({ productos: [producto._id], fecha, horaInicio: "10:00", metodoPago: "efectivo" });
     expect(res.status).toBe(400);
   });
 
-  it("retorna 400 si el total es negativo", async () => {
+  it("retorna 400 si no se envia ningun producto", async () => {
     const fecha = proximoLunes();
     const res = await request(app)
       .post("/api/turnos")
       .set("x-token", token)
-      .send({ productos: [], fecha, horaInicio: "10:00", metodoPago: "transferencia", total: -100 });
+      .send({ productos: [], fecha, horaInicio: "10:00", metodoPago: "transferencia" });
     expect(res.status).toBe(400);
   });
 });
@@ -128,8 +155,10 @@ describe("GET /api/turnos/mis-turnos", () => {
       .get("/api/turnos/mis-turnos")
       .set("x-token", token);
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body).toHaveLength(2);
+    expect(res.body.success).toBe(true);
+    expect(res.body.count).toBe(2);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data).toHaveLength(2);
   });
 
   it("retorna 401 sin token", async () => {
@@ -175,6 +204,39 @@ describe("GET /api/turnos/admin", () => {
     const res = await request(app)
       .get("/api/turnos/admin?pagina=0")
       .set("x-token", tokenAdmin);
+    expect(res.status).toBe(400);
+  });
+});
+
+// ─── POST /api/turnos/:id/subir-comprobante ──────────────────────────────────
+
+describe("POST /api/turnos/:id/subir-comprobante", () => {
+  it("retorna 400 si el archivo no es una imagen permitida", async () => {
+    const usuario = await crearUsuarioDB();
+    const token = generarToken(usuario);
+    const turno = await crearTurnoDirecto(usuario._id, { estado: "pendiente" });
+    const res = await request(app)
+      .post(`/api/turnos/${turno._id}/subir-comprobante`)
+      .set("x-token", token)
+      .attach("img", Buffer.from("contenido falso"), {
+        filename: "comprobante.txt",
+        contentType: "text/plain",
+      });
+    expect(res.status).toBe(400);
+  });
+
+  it("retorna 400 si el archivo supera el tamaño maximo", async () => {
+    const usuario = await crearUsuarioDB();
+    const token = generarToken(usuario);
+    const turno = await crearTurnoDirecto(usuario._id, { estado: "pendiente" });
+    const archivoGrande = Buffer.alloc(6 * 1024 * 1024, 0);
+    const res = await request(app)
+      .post(`/api/turnos/${turno._id}/subir-comprobante`)
+      .set("x-token", token)
+      .attach("img", archivoGrande, {
+        filename: "comprobante.jpg",
+        contentType: "image/jpeg",
+      });
     expect(res.status).toBe(400);
   });
 });

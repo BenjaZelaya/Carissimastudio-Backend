@@ -86,7 +86,9 @@ const obtenerDisponibilidadSemana = async (fechaInicio) => {
     if (fecha < hoy) continue;
 
     const fechaConHora = new Date(fecha.toISOString().split("T")[0] + "T12:00:00");
-    const diaNum = fechaConHora.getDay() + 1;
+    // getDay() devuelve 0=domingo..6=sábado; ConfigHorario.diasLaborales usa 1=lunes..7=domingo.
+    const diaSemana = fechaConHora.getDay();
+    const diaNum = diaSemana === 0 ? 7 : diaSemana;
     const esLaboral = config.diasLaborales.includes(diaNum);
 
     const bloqueos = await Bloqueo.find({

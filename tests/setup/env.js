@@ -7,3 +7,5 @@ process.env.MONGO_URI = "mongodb://localhost/test_placeholder"; // reemplazado p
 process.env.CLOUDINARY_CLOUD_NAME = "test_cloud";
 process.env.CLOUDINARY_API_KEY = "test_api_key";
 process.env.CLOUDINARY_API_SECRET = "test_api_secret";
+process.env.RESEND_API_KEY = "re_test_placeholder";
+process.env.ADMIN_EMAIL = "admin@test.com";

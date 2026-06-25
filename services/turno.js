@@ -1,7 +1,10 @@
 // services/turno.js
+import mongoose from "mongoose";
 import Turno from "../models/Turno.js";
+import Producto from "../models/Producto.js";
 import Bloqueo from "../models/Bloqueo.js";
 import ConfigHorario from "../models/ConfigHorario.js";
+import SlotLock from "../models/SlotLock.js";
 import { AppError } from "../helpers/AppError.js";
 import { enviarEmailConfirmacionReserva, enviarEmailNotificacionAdmin, enviarEmailConfirmacionTurno, enviarEmailCancelacionTurnoAlUsuario, enviarEmailCancelacionTurnoAlAdmin, enviarEmailCambioHorario } from "./email.js";
 import logger from "../helpers/logger.js";
@@ -13,13 +16,56 @@ const horaAMinutos = (hora) => {
   return h * 60 + m;
 };
 
+// Fuerza un conflicto real de escritura entre transacciones concurrentes que
+// compiten por el mismo slot: un countDocuments + insert por sí solos no
+// generan conflicto en MongoDB porque cada uno escribe un documento Turno
+// distinto. Al incrementar siempre el mismo documento de lock dentro de la
+// transacción, dos requests para el mismo slot chocan en esa escritura y
+// session.withTransaction reintenta automáticamente a la perdedora con los
+// datos ya confirmados de la ganadora.
+const tomarLockDeSlot = async (fechaStr, horaInicio, session) => {
+  const slotKey = `${fechaStr}_${horaInicio}`;
+  await SlotLock.findOneAndUpdate(
+    { slotKey },
+    { $setOnInsert: { slotKey }, $inc: { version: 1 } },
+    { upsert: true, session }
+  );
+};
+
+const validarAntelacionMinima = (fechaStr, horaInicio) => {
+  const fechaHora = new Date(`${fechaStr}T${horaInicio}:00`);
+  const veinticuatroHs = 24 * 60 * 60 * 1000;
+  if (fechaHora.getTime() - Date.now() < veinticuatroHs) {
+    throw new AppError("El turno debe reservarse con al menos 24 horas de antelación", 400);
+  }
+};
+
 // ─── Lógica de negocio ───────────────────────────────────────────────────────
 
 const crearTurno = async (datos, usuarioId) => {
-  const { productos, fecha, horaInicio, metodoPago, total } = datos;
+  const { productos, fecha, horaInicio, metodoPago } = datos;
+
+  if (!Array.isArray(productos) || productos.length === 0) {
+    throw new AppError("Debe seleccionar al menos un producto", 400);
+  }
+
+  // El total nunca se confía del cliente: se recalcula a partir del precio
+  // real de los productos activos para evitar manipulación del monto a pagar.
+  const productosDb = await Producto.find({
+    _id: { $in: productos },
+    estado: true,
+  });
+
+  if (productosDb.length !== new Set(productos.map(String)).size) {
+    throw new AppError("Uno o más productos no existen o no están disponibles", 400);
+  }
+
+  const total = productosDb.reduce((suma, p) => suma + p.precio, 0);
+
+  const fechaStr = fecha.split("T")[0];
+  validarAntelacionMinima(fechaStr, horaInicio);
 
   // Validar que el slot no esté lleno según la capacidad configurada
-  const fechaStr = fecha.split("T")[0];
   const inicioDelDia = new Date(fechaStr + "T00:00:00.000Z");
   const finDelDia = new Date(fechaStr + "T23:59:59.999Z");
 
@@ -29,18 +75,9 @@ const crearTurno = async (datos, usuarioId) => {
 
   const capacidad = config.capacidadPorTurno || 1;
 
-  const turnosEnSlot = await Turno.countDocuments({
-    fecha: { $gte: inicioDelDia, $lt: finDelDia },
-    horaInicio,
-    estado: { $in: ["pendiente", "señado", "confirmado"] },
-  });
-
-  if (turnosEnSlot >= capacidad) {
-    throw new AppError("Ese horario ya está reservado", 409);
-  }
-
-  const diaSemana = new Date(fecha + "T12:00:00").getDay();
-  const diaNum = diaSemana + 1;
+  // getDay() devuelve 0=domingo..6=sábado; ConfigHorario.diasLaborales usa 1=lunes..7=domingo.
+  const diaSemana = new Date(fechaStr + "T12:00:00").getDay();
+  const diaNum = diaSemana === 0 ? 7 : diaSemana;
 
   if (!config.diasLaborales.includes(diaNum)) {
     throw new AppError("Ese día no es laborable", 400);
@@ -70,17 +107,45 @@ const crearTurno = async (datos, usuarioId) => {
 
   const seña = Math.round(total * 0.5);
 
-  const turno = new Turno({
-    usuario: usuarioId,
-    productos,
-    fecha: new Date(fecha.split("T")[0] + "T12:00:00"),
-    horaInicio,
-    total,
-    seña,
-    metodoPago,
-  });
+  // El chequeo de capacidad y la creación del turno se hacen dentro de una
+  // misma transacción para evitar overbooking: sin esto, dos requests
+  // concurrentes para el mismo slot podrían pasar el chequeo de capacidad
+  // antes de que cualquiera de las dos escriba.
+  const session = await mongoose.startSession();
+  let turnoCreado;
+  try {
+    await session.withTransaction(async () => {
+      await tomarLockDeSlot(fechaStr, horaInicio, session);
 
-  return await turno.save();
+      const turnosEnSlot = await Turno.countDocuments({
+        fecha: { $gte: inicioDelDia, $lt: finDelDia },
+        horaInicio,
+        estado: { $in: ["pendiente", "señado", "confirmado"] },
+      }).session(session);
+
+      if (turnosEnSlot >= capacidad) {
+        throw new AppError("Ese horario ya está reservado", 409);
+      }
+
+      const turno = new Turno({
+        usuario: usuarioId,
+        productos,
+        fecha: new Date(fecha.split("T")[0] + "T12:00:00"),
+        horaInicio,
+        total,
+        seña,
+        metodoPago,
+        estado: "pendiente",
+      });
+
+      await turno.save({ session });
+      turnoCreado = turno;
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  return turnoCreado;
 };
 
 const obtenerTurnosUsuario = async (usuarioId) => {
@@ -237,33 +302,49 @@ const cambiarHorario = async (id, datos, usuarioId) => {
     }
   }
 
-  // Validar que el nuevo slot no esté ocupado
+  validarAntelacionMinima(datos.fecha.split("T")[0], datos.horaInicio);
+
+  // Validar que el nuevo slot no esté ocupado y aplicar el cambio dentro de
+  // una misma transacción, para evitar que dos cambios concurrentes hacia el
+  // mismo slot pasen ambos el chequeo antes de que cualquiera escriba.
   const inicioDia = new Date(datos.fecha);
   inicioDia.setHours(0, 0, 0, 0);
   const finDia = new Date(inicioDia.getTime() + 24 * 60 * 60 * 1000);
 
-  const conflicto = await Turno.findOne({
-    _id: { $ne: id },
-    fecha: { $gte: inicioDia, $lt: finDia },
-    horaInicio: datos.horaInicio,
-    estado: { $in: ["pendiente", "señado", "confirmado"] },
-  });
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      await tomarLockDeSlot(datos.fecha.split("T")[0], datos.horaInicio, session);
 
-  if (conflicto) {
-    throw new AppError("Ese horario ya está reservado", 409);
+      const conflicto = await Turno.findOne({
+        _id: { $ne: id },
+        fecha: { $gte: inicioDia, $lt: finDia },
+        horaInicio: datos.horaInicio,
+        estado: { $in: ["pendiente", "señado", "confirmado"] },
+      }).session(session);
+
+      if (conflicto) {
+        throw new AppError("Ese horario ya está reservado", 409);
+      }
+
+      await Turno.findByIdAndUpdate(
+        id,
+        {
+          fecha: new Date(datos.fecha),
+          horaInicio: datos.horaInicio,
+          cambiosHorario: turno.cambiosHorario + 1,
+          ultimoCambioHorario: new Date(),
+        },
+        { session },
+      );
+    });
+  } finally {
+    await session.endSession();
   }
 
-  const turnoActualizado = await Turno.findByIdAndUpdate(
-    id,
-    {
-      fecha: new Date(datos.fecha),
-      horaInicio: datos.horaInicio,
-      cambiosHorario: turno.cambiosHorario + 1,
-      ultimoCambioHorario: new Date(),
-    },
-    { new: true },
-  ).populate("usuario", "nombre email")
-   .populate("productos", "nombreProducto precio");
+  const turnoActualizado = await Turno.findById(id)
+    .populate("usuario", "nombre email")
+    .populate("productos", "nombreProducto precio");
 
   // ─── Enviar email al usuario notificando el cambio ───
   try {
